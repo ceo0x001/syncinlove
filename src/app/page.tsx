@@ -8,6 +8,7 @@ import { Button, Card, Rule, Screen, Wordmark } from '@/components/ui'
 import { isConfigured } from '@/lib/supabase/env'
 import { formatCountdown } from '@/lib/sync/day'
 import { loadHome, type Economy, type HomeState } from '@/lib/session'
+import { SUPPORT_URL } from '@/lib/support'
 import { settleOpenDays } from '@/app/actions'
 import { tender } from '@/lib/tender'
 
@@ -273,8 +274,24 @@ function Hub({ home }: { home: HomeState }) {
           </>
         ) : null}
 
-        <footer className="t-small pt-2 text-ink-faint">
-          {today ? `Tomorrow’s question in ${formatCountdown(secondsToRollover)}.` : null}
+        {/* Quiet, but on every visit to the dashboard. Feedback that needs
+            hunting for never arrives. */}
+        <footer
+          className="stack t-small pt-2 text-ink-faint"
+          style={{ ['--stack-gap' as string]: '0.5rem' }}
+        >
+          {today ? <p>Tomorrow’s question in {formatCountdown(secondsToRollover)}.</p> : null}
+          <p>
+            Something broken, missing, or worth saying?{' '}
+            <a
+              href={SUPPORT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-ink-muted underline decoration-hairline-strong underline-offset-4 hover:text-ink"
+            >
+              Message us on WhatsApp
+            </a>
+          </p>
         </footer>
       </div>
     </Screen>
