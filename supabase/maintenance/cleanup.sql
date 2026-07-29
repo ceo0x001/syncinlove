@@ -91,6 +91,57 @@ where p.status = 'pending'
 
 
 -- ----------------------------------------------------------------------------
+-- 3b. Clear development data but keep your own account
+--
+-- The usual case: you've been testing with throwaway names and want them gone
+-- without losing the real account you built along the way.
+--
+-- DESTRUCTIVE. Run the preview in section 1 first and confirm the row you intend
+-- to keep is the one you think it is.
+--
+-- Keying on the email address is deliberate. Every test account is anonymous —
+-- they never attached one — so the address is the thing that distinguishes a
+-- real account from a disposable one, and it's far safer than pasting in uuids.
+-- ----------------------------------------------------------------------------
+
+-- Preview exactly what would go, and what would stay.
+select
+  case when u.email is not null then 'KEEP' else 'DELETE' end as fate,
+  coalesce(u.email, '(anonymous)') as email,
+  p.first_name,
+  u.created_at
+from auth.users u
+left join public.profiles p on p.id = u.id
+order by fate, u.created_at;
+
+-- Then, replacing the address with yours:
+--
+-- begin;
+--
+-- -- Cascades through profiles -> pair_members -> answers.
+-- delete from auth.users
+-- where email is distinct from 'you@example.com';
+--
+-- -- Pairs aren't reachable by that cascade, so sweep the ones left empty.
+-- -- Cascades to their invites and reveals.
+-- delete from public.pairs p
+-- where not exists (
+--   select 1 from public.pair_members m where m.pair_id = p.id
+-- );
+--
+-- commit;
+
+-- Confirm afterwards. The question bank must still read 30.
+-- select
+--   (select count(*) from auth.users)       as users,
+--   (select count(*) from public.profiles)  as profiles,
+--   (select count(*) from public.pairs)     as pairs,
+--   (select count(*) from public.answers)   as answers,
+--   (select count(*) from public.reveals)   as reveals,
+--   (select count(*) from public.questions) as questions;
+
+
+-- ----------------------------------------------------------------------------
 -- 4. Full reset
 --
 -- VERY DESTRUCTIVE — wipes every account, pairing, answer and reveal, leaving
