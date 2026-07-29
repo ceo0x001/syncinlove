@@ -9,8 +9,12 @@
 \set bob   '22222222-2222-4222-8222-222222222222'
 \set carol '33333333-3333-4333-8333-333333333333'
 
-insert into auth.users (id, is_anonymous) values
-  (:'alice', true), (:'bob', true), (:'carol', true);
+-- Emails present because spending is gated on a confirmed account, and the
+-- revoke assertions further down need a real purchase to prove it gets swept.
+insert into auth.users (id, email, is_anonymous) values
+  (:'alice', 'alice@example.com', false),
+  (:'bob',   'bob@example.com',   false),
+  (:'carol', 'carol@example.com', false);
 
 create or replace function assert(p_ok boolean, p_what text)
 returns void language plpgsql as $$
@@ -337,6 +341,27 @@ reset role;
 -- ---------------------------------------------------------------------------
 set sync.uid = '11111111-1111-4111-8111-111111111111';
 
+-- Build an economy first, so the sweep below has something to clear.
+select public.upsert_menu_item(null, 'Back rub', 40000);
+select public.upsert_menu_item(null, 'Dinner handled', 150000);
+select public.upsert_menu_item(null, 'You pick the film', 10000);
+
+set sync.uid = '22222222-2222-4222-8222-222222222222';
+select public.upsert_menu_item(null, 'Coffee in bed', 20000);
+select public.upsert_menu_item(null, 'Airport run', 120000);
+select public.upsert_menu_item(null, 'Bins for a month', 60000);
+do $$
+begin
+  perform public.buy_menu_item((select id from public.menu_items where title = 'You pick the film'));
+end $$;
+
+select assert(
+  (select count(*) from public.tender_entries where pair_id = public.current_pair_id()) > 0,
+  'the pair has a ledger before the undo'
+);
+
+set sync.uid = '11111111-1111-4111-8111-111111111111';
+
 select assert((public.revoke_claim() ->> 'ok')::boolean, 'alice can undo a mis-sent link');
 
 select assert(
@@ -345,6 +370,29 @@ select assert(
 );
 
 select assert((select count(*) from public.reveals) = 0, 'the reveal is cleared with them');
+
+-- Revoking must clear the economy too, or the inviter keeps a payout for a
+-- deleted reveal — and, because payouts dedupe on (pair, user, day, reason),
+-- stays marked as paid for that day. The next partner would then earn while the
+-- inviter earned nothing, breaking the one guarantee the economy rests on.
+select assert(
+  (select count(*) from public.tender_entries where pair_id = public.current_pair_id()) = 0,
+  'revoking clears the ledger, so nobody is left paid for a deleted day'
+);
+select assert(
+  (select count(*) from public.purchases where pair_id = public.current_pair_id()) = 0,
+  'revoking clears purchases'
+);
+select assert(
+  (select count(*) from public.menu_items
+   where pair_id = public.current_pair_id() and owner_id = :'bob') = 0,
+  'the wrong person takes their menu with them'
+);
+select assert(
+  (select count(*) from public.menu_items
+   where pair_id = public.current_pair_id() and owner_id = :'alice') > 0,
+  'but the inviter keeps their own menu — they wrote it'
+);
 select assert((select count(*) from public.answers where user_id = :'bob') = 0, 'their answers go too');
 select assert(
   (public.peek_invite('hash-a') ->> 'state') = 'open',
