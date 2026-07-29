@@ -3,29 +3,19 @@
 import { useActionState, useEffect, useState, useTransition } from 'react'
 import { saveMenuItem, setMenuItemActive } from '@/app/actions'
 import type { MenuItem } from '@/lib/session'
+import { MENU_PRICE_CEILING, priceContext, tender } from '@/lib/tender'
 import { Button, Notice, TextField } from './ui'
 
 /**
  * Writing your own menu.
  *
- * Price bands are shown as guidance, not enforced beyond the T600 ceiling. The
+ * Price bands are shown as guidance, not enforced beyond the ceiling. The
  * economy is supposed to settle through the two of you negotiating, and a band
  * that quietly rewrote somebody's number would take that away — but a first-time
  * writer with no reference point will guess wildly, so the anchor is worth
  * showing.
  */
 
-const DAILY_CAP = 60
-
-/** What a price means in days of syncing. The only unit that matters here. */
-function priceContext(price: number): string {
-  if (price <= 0) return ''
-  const days = price / DAILY_CAP
-  if (days < 0.5) return 'less than half a day of syncing'
-  if (days < 1.5) return 'about a day of syncing'
-  if (days < 10) return `about ${Math.round(days)} days of syncing`
-  return 'a fortnight or more of syncing'
-}
 
 export function MenuEditor({
   items,
@@ -90,12 +80,12 @@ function ItemRow({ item, onEdit }: { item: MenuItem; onEdit: () => void }) {
         <div className="min-w-0">
           <p className="t-title break-words text-ink">{item.title}</p>
           <p className="t-small mt-1 text-ink-muted">
-            <span className="tabular">T{item.price}</span>
+            <span className="tabular">{tender(item.price)}</span>
             <span className="text-ink-faint"> · {priceContext(item.price)}</span>
           </p>
           {item.lastPriceChange ? (
             <p className="t-small mt-1 text-ink-faint tabular">
-              was T{item.lastPriceChange.from}
+              was {tender(item.lastPriceChange.from)}
             </p>
           ) : null}
           {!item.active ? (
@@ -177,13 +167,14 @@ function ItemForm({ item, onDone }: { item?: MenuItem; onDone: () => void }) {
         inputMode="numeric"
         pattern="[0-9]*"
         value={price}
-        onChange={(event) => setPrice(event.target.value.replace(/\D/g, '').slice(0, 3))}
+        onChange={(event) => setPrice(event.target.value.replace(/\D/g, '').slice(0, 6))}
         required
-        placeholder="40"
+        placeholder="25000"
+        aria-describedby="price-hint"
         hint={
           numeric > 0
-            ? `T${numeric} — ${priceContext(numeric)}.`
-            : 'Most things land between T20 and T150. Yours to decide.'
+            ? `${tender(numeric)} — ${priceContext(numeric)}.`
+            : `Most things land between ${tender(15_000)} and ${tender(100_000)}. Yours to decide, up to ${tender(MENU_PRICE_CEILING)}.`
         }
       />
 

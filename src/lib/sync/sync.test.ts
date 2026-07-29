@@ -10,6 +10,16 @@ import { validatePayload } from '@/lib/questions/validate'
 import type { Question } from '@/lib/questions/types'
 import { NEUTRAL_MATCH, scoreDirection, scoreFacet, scoreSync } from './score'
 import {
+  MENU_PRICE_CEILING,
+  STREAK_MILESTONES,
+  TENDER_ACCURACY_MAX,
+  TENDER_COMPLETION,
+  TENDER_DAILY_CAP,
+  payoutForScore,
+  priceContext,
+  tender,
+} from '@/lib/tender'
+import {
   addDays,
   currentDayIndex,
   daysBetween,
@@ -592,5 +602,91 @@ describe('streakFrom', () => {
   // 30-hour grace window meaningful — answering at 01:00 must not break a run.
   it('does not care when in the window the answers landed', () => {
     expect(streakFrom([10, 11, 12])).toBe(3)
+  })
+})
+
+
+describe('tender', () => {
+  it('pays the completion floor even on a total miss', () => {
+    // A zero-payout day punishes the behaviour the app exists to build, and makes
+    // a bad day feel like a penalty rather than information.
+    expect(payoutForScore(0)).toBe(TENDER_COMPLETION)
+  })
+
+  it('pays exactly the cap on a perfect read', () => {
+    expect(payoutForScore(100)).toBe(TENDER_DAILY_CAP)
+    expect(TENDER_COMPLETION + TENDER_ACCURACY_MAX).toBe(TENDER_DAILY_CAP)
+  })
+
+  it('never exceeds the cap, whatever it is handed', () => {
+    for (const s of [-50, 0, 33, 78, 100, 500]) {
+      expect(payoutForScore(s)).toBeLessThanOrEqual(TENDER_DAILY_CAP)
+      expect(payoutForScore(s)).toBeGreaterThanOrEqual(TENDER_COMPLETION)
+    }
+  })
+
+  it('rises monotonically with the score', () => {
+    for (let s = 1; s <= 100; s++) {
+      expect(payoutForScore(s)).toBeGreaterThanOrEqual(payoutForScore(s - 1))
+    }
+  })
+
+  // The rule is a ratio, not a number. An item nobody could ever afford is a way
+  // of refusing without saying so.
+  it('caps a single menu item at ten perfect days', () => {
+    expect(MENU_PRICE_CEILING).toBe(TENDER_DAILY_CAP * 10)
+  })
+
+  it('keeps streak bonuses a minority of a strong month', () => {
+    // At 60% the base score stops mattering and the leaderboard ranks attendance.
+    const strongMonth = 30 * payoutForScore(78)
+    const allBonuses = STREAK_MILESTONES.filter((m) => m.days <= 30).reduce(
+      (sum, m) => sum + m.bonus,
+      0,
+    )
+    const share = allBonuses / (strongMonth + allBonuses)
+    expect(share).toBeGreaterThan(0.05)
+    expect(share).toBeLessThan(0.3)
+  })
+
+  it('puts a millionaire month within reach of a strong couple, not a random one', () => {
+    const bonusesBy = (day: number) =>
+      STREAK_MILESTONES.filter((m) => m.days <= day).reduce((s, m) => s + m.bonus, 0)
+
+    const dayReached = (sync: number) => {
+      let total = 0
+      for (let day = 1; day <= 400; day++) {
+        total += payoutForScore(sync) + (bonusesBy(day) - bonusesBy(day - 1))
+        if (total >= 1_000_000) return day
+      }
+      return Infinity
+    }
+
+    // A well-read couple gets there around a month.
+    expect(dayReached(78)).toBeLessThanOrEqual(30)
+    // Random guessing averages ~33 — it should still arrive, but noticeably later,
+    // or the list stops distinguishing anybody.
+    expect(dayReached(33)).toBeGreaterThan(35)
+  })
+
+  it('has ascending milestones with ascending bonuses', () => {
+    for (let i = 1; i < STREAK_MILESTONES.length; i++) {
+      expect(STREAK_MILESTONES[i].days).toBeGreaterThan(STREAK_MILESTONES[i - 1].days)
+      expect(STREAK_MILESTONES[i].bonus).toBeGreaterThan(STREAK_MILESTONES[i - 1].bonus)
+    }
+  })
+
+  it('groups digits, because five figures without separators is unreadable', () => {
+    expect(tender(25_000)).toBe('T25,000')
+    expect(tender(400_000)).toBe('T400,000')
+    expect(tender(0)).toBe('T0')
+  })
+
+  // This line does the intuition work the raw number can't at this scale.
+  it('describes a price in days of syncing', () => {
+    expect(priceContext(TENDER_DAILY_CAP)).toContain('a day')
+    expect(priceContext(Math.round(TENDER_DAILY_CAP / 2))).toContain('half a day')
+    expect(priceContext(TENDER_DAILY_CAP * 3)).toContain('3 days')
+    expect(priceContext(0)).toBe('')
   })
 })

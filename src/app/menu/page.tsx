@@ -7,6 +7,7 @@ import { TheirMenu } from '@/components/their-menu'
 import { Button, Rule, Screen, Wordmark } from '@/components/ui'
 import { isConfigured } from '@/lib/supabase/env'
 import { loadHome } from '@/lib/session'
+import { daysOfSyncing, formatTender, tender } from '@/lib/tender'
 import { settleOpenDays } from '@/app/actions'
 
 export const dynamic = 'force-dynamic'
@@ -117,14 +118,17 @@ function Wallets({
           <p className="t-label mb-1.5">Yours</p>
           <p className="font-serif text-[2.25rem] leading-none tracking-tight tabular text-ink">
             <span className="text-[0.55em] text-ink-muted">T</span>
-            {economy.mine.balance}
+            {formatTender(economy.mine.balance)}
+          </p>
+          <p className="t-small mt-1 text-ink-faint">
+            {daysOfSyncing(economy.mine.balance)} days of syncing
           </p>
         </div>
         <div className="text-right">
           <p className="t-label mb-1.5">{theirName}’s</p>
           <p className="font-serif text-[2.25rem] leading-none tracking-tight tabular text-ink-muted">
             <span className="text-[0.55em]">T</span>
-            {economy.theirs.balance}
+            {formatTender(economy.theirs.balance)}
           </p>
         </div>
       </div>
@@ -134,7 +138,7 @@ function Wallets({
           <p className="t-small text-ink-muted">
             {myAvg !== null ? (
               <>
-                {myName}’s menu averages <span className="tabular">T{myAvg}</span>
+                {myName}’s menu averages <span className="tabular">{tender(myAvg)}</span>
               </>
             ) : (
               <>{myName} hasn’t priced anything yet</>
@@ -142,7 +146,7 @@ function Wallets({
             {' · '}
             {theirAvg !== null ? (
               <>
-                {theirName}’s averages <span className="tabular">T{theirAvg}</span>
+                {theirName}’s averages <span className="tabular">{tender(theirAvg)}</span>
               </>
             ) : (
               <>{theirName} hasn’t either</>

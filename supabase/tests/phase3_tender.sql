@@ -42,18 +42,18 @@ select public.submit_answer(0,
 
 -- alice read bob: |40-30|=10 -> 80 ; brain==brain -> 100 ; mean 90
 -- bob read alice: |90-80|=10 -> 80 ; brain==brain -> 100 ; mean 90
--- sync 90 -> payout 15 + round(45*0.9)=41 -> 56
+-- sync 90 -> payout 10,000 + round(30,000*0.9)=27,000 -> 37,000
 select assert(
   (select sync_score from public.reveals where day_index = 0) = 90,
   'day 0 scores 90'
 );
 
-select assert(public.tender_payout_for_score(90) = 56, 'a 90 pays 56');
-select assert(public.tender_payout_for_score(0) = 15,  'a zero day still pays the completion floor');
-select assert(public.tender_payout_for_score(100) = 60, 'a perfect day pays exactly the cap');
+select assert(public.tender_payout_for_score(90) = 37000, 'a 90 pays T37,000');
+select assert(public.tender_payout_for_score(0) = 10000, 'a zero day still pays the completion floor');
+select assert(public.tender_payout_for_score(100) = 40000, 'a perfect day pays exactly the cap');
 
 select assert(
-  public.tender_balance(:'alice') = 56 and public.tender_balance(:'bob') = 56,
+  public.tender_balance(:'alice') = 37000 and public.tender_balance(:'bob') = 37000,
   'both wallets credited the same amount'
 );
 
@@ -67,14 +67,14 @@ set sync.uid = '11111111-1111-4111-8111-111111111111';
 select public.submit_answer(0,
   '{"quality": 80, "culprit": "brain"}'::jsonb,
   '{"quality": 40, "culprit": "brain"}'::jsonb);
-select assert(public.tender_balance(:'alice') = 56, 'a repeat submission does not pay twice');
+select assert(public.tender_balance(:'alice') = 37000, 'a repeat submission does not pay twice');
 
 do $$
 begin
   perform public.pay_out_reveal(public.current_pair_id(), 0);
   perform public.pay_out_reveal(public.current_pair_id(), 0);
 end $$;
-select assert(public.tender_balance(:'alice') = 56, 'pay_out_reveal is idempotent');
+select assert(public.tender_balance(:'alice') = 37000, 'pay_out_reveal is idempotent');
 
 -- ---------------------------------------------------------------------------
 -- The neutral discount. Both shrug -> the choice facet scores half, not full.
@@ -118,9 +118,9 @@ select assert(
 -- Menus. Own only.
 -- ---------------------------------------------------------------------------
 set sync.uid = '11111111-1111-4111-8111-111111111111';
-select public.upsert_menu_item(null, 'Back rub', 40);
-select public.upsert_menu_item(null, 'I handle dinner all week', 150);
-select public.upsert_menu_item(null, 'You pick the film, no complaints', 25);
+select public.upsert_menu_item(null, 'Back rub', 40000);
+select public.upsert_menu_item(null, 'I handle dinner all week', 150000);
+select public.upsert_menu_item(null, 'You pick the film, no complaints', 10000);
 
 select assert(
   (select count(*) from public.menu_items where owner_id = :'alice') = 3,
@@ -142,7 +142,7 @@ end $$;
 
 do $$
 begin
-  perform public.upsert_menu_item(null, 'Absurd', 5000);
+  perform public.upsert_menu_item(null, 'Absurd', 400001);
   raise exception 'FAILED: price ceiling not enforced';
 exception when sqlstate '22023' then
   raise notice 'ok — nothing can be priced beyond reach';
@@ -154,10 +154,10 @@ declare v_item uuid;
 begin
   select id into v_item from public.menu_items
   where owner_id = '11111111-1111-4111-8111-111111111111' and title = 'Back rub';
-  perform public.upsert_menu_item(v_item, 'Back rub', 90);
+  perform public.upsert_menu_item(v_item, 'Back rub', 90000);
 end $$;
 select assert(
-  (select count(*) from public.menu_price_changes where old_price = 40 and new_price = 90) = 1,
+  (select count(*) from public.menu_price_changes where old_price = 40000 and new_price = 90000) = 1,
   'a price change is recorded, not silent'
 );
 
@@ -174,11 +174,11 @@ exception when sqlstate 'P0013' then
   raise notice 'ok — you must offer something before you can spend';
 end $$;
 
-select public.upsert_menu_item(null, 'Coffee in bed', 20);
-select public.upsert_menu_item(null, 'Airport run', 120);
-select public.upsert_menu_item(null, 'I deal with the bins all month', 60);
+select public.upsert_menu_item(null, 'Coffee in bed', 20000);
+select public.upsert_menu_item(null, 'Airport run', 120000);
+select public.upsert_menu_item(null, 'I deal with the bins all month', 60000);
 
--- Back rub was repriced to 90 above; bob holds 56.
+-- Back rub was repriced to T90,000 above; bob holds T37,000.
 do $$
 begin
   perform public.buy_menu_item((select id from public.menu_items where title = 'Back rub'));
@@ -192,7 +192,7 @@ select assert(
   'a refused purchase leaves no record behind'
 );
 
-select assert(public.tender_balance(:'bob') = 56, 'a failed purchase moves no money');
+select assert(public.tender_balance(:'bob') = 37000, 'a failed purchase moves no money');
 
 -- Buy something affordable.
 do $$
@@ -202,8 +202,8 @@ begin
   );
 end $$;
 
-select assert(public.tender_balance(:'bob') = 56 - 25, 'buying debits the buyer');
-select assert(public.tender_balance(:'alice') = 56, 'buying does not credit the seller');
+select assert(public.tender_balance(:'bob') = 27000, 'buying debits the buyer');
+select assert(public.tender_balance(:'alice') = 37000, 'buying does not credit the seller');
 select assert(
   (select status from public.purchases limit 1) = 'requested',
   'a purchase starts as a request, not a done deal'
@@ -225,7 +225,7 @@ select assert(
   (select status from public.purchases limit 1) = 'fulfilled',
   'the buyer can mark it done'
 );
-select assert(public.tender_balance(:'bob') = 31, 'fulfilment moves no further money');
+select assert(public.tender_balance(:'bob') = 27000, 'fulfilment moves no further money');
 
 -- ---------------------------------------------------------------------------
 -- Declining refunds in full. This is what makes tender a nudge, not a debt.
@@ -253,7 +253,7 @@ select assert(
   (select count(*) from public.purchases where status = 'declined') = 1,
   'the seller can decline'
 );
-select assert(public.tender_balance(:'bob') = 31, 'declining refunds in full');
+select assert(public.tender_balance(:'bob') = 27000, 'declining refunds in full');
 select assert(
   (select count(*) from public.tender_entries where reason = 'refund') = 1,
   'the refund is a ledger entry, not an edit'
@@ -274,7 +274,7 @@ end $$;
 -- Earned vs held. The Rich List must rank on earned.
 -- ---------------------------------------------------------------------------
 select assert(
-  public.tender_earned(:'bob') = 56,
+  public.tender_earned(:'bob') = 37000,
   'earned counts payouts only — spending does not reduce it'
 );
 select assert(
@@ -340,3 +340,140 @@ reset role;
 
 \echo ''
 \echo 'ALL PHASE 3 ASSERTIONS PASSED'
+
+-- ===========================================================================
+-- Rescale and streak milestones (0003)
+-- ===========================================================================
+
+-- These must match src/lib/tender.ts, which the TS suite asserts separately.
+select assert(public.tender_completion()   = 10000,  'completion is T10,000');
+select assert(public.tender_accuracy_max() = 30000,  'accuracy tops out at T30,000');
+select assert(public.tender_daily_cap()    = 40000,  'the daily cap is T40,000');
+select assert(
+  public.tender_completion() + public.tender_accuracy_max() = public.tender_daily_cap(),
+  'completion plus accuracy is exactly the cap'
+);
+
+-- The x10 rule is a ratio, so it survives any redenomination.
+select assert(
+  public.menu_price_ceiling() = public.tender_daily_cap() * 10,
+  'a menu item still caps at ten perfect days'
+);
+
+select assert(public.tender_payout_for_score(0)   = 10000, 'a total miss still pays the floor');
+select assert(public.tender_payout_for_score(100) = 40000, 'a perfect read pays the cap');
+select assert(public.tender_payout_for_score(78)  = 33400, 'a 78 pays T33,400');
+
+-- ---------------------------------------------------------------------------
+-- pair_streak counts the contiguous run from the newest reveal.
+-- ---------------------------------------------------------------------------
+set sync.uid = '11111111-1111-4111-8111-111111111111';
+
+do $$
+declare v_pair uuid := public.current_pair_id();
+begin
+  -- Day 0 already exists from the earlier flow. Add a gap, then a run.
+  insert into public.reveals (pair_id, day_index, question_id, sync_score, payload)
+  select v_pair, d, 'q-sleep', 100, '{}'::jsonb
+  from unnest(array[5, 6, 7]) d
+  on conflict do nothing;
+end $$;
+
+-- Reveals now at 0, 5, 6, 7 -> the run ending at 7 is three long.
+select assert(
+  public.pair_streak(public.current_pair_id()) = 3,
+  'the streak counts back from the newest reveal and stops at the gap'
+);
+
+do $$
+declare v_pair uuid := public.current_pair_id();
+begin
+  insert into public.reveals (pair_id, day_index, question_id, sync_score, payload)
+  select v_pair, d, 'q-sleep', 100, '{}'::jsonb
+  from unnest(array[1, 2, 3, 4]) d
+  on conflict do nothing;
+end $$;
+
+-- Now 0..7 contiguous.
+select assert(
+  public.pair_streak(public.current_pair_id()) = 8,
+  'filling the gap joins the runs'
+);
+
+-- ---------------------------------------------------------------------------
+-- Milestones pay once, to both partners, and count as earned.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  perform public.award_streak_milestones(public.current_pair_id());
+end $$;
+
+select assert(
+  (select count(*) from public.tender_entries where reason = 'streak' and milestone = 7) = 2,
+  'the 7-day milestone pays both partners'
+);
+select assert(
+  (select count(*) from public.tender_entries where reason = 'streak' and milestone = 14) = 0,
+  'a milestone beyond the streak is not paid'
+);
+select assert(
+  (select amount from public.tender_entries where reason = 'streak' and milestone = 7 limit 1) = 25000,
+  'the 7-day bonus is T25,000'
+);
+
+-- Farming guard: re-running must not pay again.
+do $$
+begin
+  perform public.award_streak_milestones(public.current_pair_id());
+  perform public.award_streak_milestones(public.current_pair_id());
+end $$;
+select assert(
+  (select count(*) from public.tender_entries where reason = 'streak' and milestone = 7) = 2,
+  'a milestone cannot be harvested twice'
+);
+
+select assert(
+  public.tender_earned(:'alice') >= 25000,
+  'streak bonuses count toward earned, which is what the Rich List ranks on'
+);
+
+-- A refund still must not count as earning.
+select assert(
+  public.tender_earned(:'bob') = (
+    select coalesce(sum(amount), 0) from public.tender_entries
+    where user_id = :'bob' and reason in ('reveal', 'solo', 'streak') and amount > 0
+  ),
+  'earned excludes refunds'
+);
+
+-- ---------------------------------------------------------------------------
+-- The next-milestone nudge.
+-- ---------------------------------------------------------------------------
+select assert(
+  (public.next_streak_milestone() ->> 'days')::int = 14,
+  'the nudge points at the next unpaid milestone'
+);
+select assert(
+  (public.next_streak_milestone() ->> 'to_go')::int = 6,
+  'and says how far off it is'
+);
+
+-- ---------------------------------------------------------------------------
+-- Prices at the new ceiling.
+-- ---------------------------------------------------------------------------
+select public.upsert_menu_item(null, 'A weekend entirely your way', 400000);
+select assert(
+  (select price from public.menu_items where title = 'A weekend entirely your way') = 400000,
+  'an item can be priced right up to the ceiling'
+);
+
+do $$
+begin
+  perform public.upsert_menu_item(null, 'Beyond reach', 400001);
+  raise exception 'FAILED: the ceiling is not enforced';
+exception when sqlstate '22023' then
+  raise notice 'ok — one past the ceiling is refused';
+end $$;
+
+\echo ''
+\echo 'ALL RESCALE ASSERTIONS PASSED'

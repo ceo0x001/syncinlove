@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { buyMenuItem } from '@/app/actions'
 import type { Economy } from '@/lib/session'
+import { tender } from '@/lib/tender'
 import { Notice } from './ui'
 
 /**
@@ -57,15 +58,15 @@ export function TheirMenu({
           >
             <div className="min-w-0">
               <p className="t-title break-words text-ink">{item.title}</p>
-              <p className="t-small mt-1 tabular text-ink-muted">T{item.price}</p>
+              <p className="t-small mt-1 tabular text-ink-muted">{tender(item.price)}</p>
               {item.lastPriceChange ? (
                 <p className="t-small mt-1 tabular text-ink-faint">
-                  was T{item.lastPriceChange.from}
+                  was {tender(item.lastPriceChange.from)}
                 </p>
               ) : null}
               {!affordable ? (
                 <p className="t-small mt-1 tabular text-ink-faint">
-                  T{item.price - mine.balance} short
+                  {tender(item.price - mine.balance)} short
                 </p>
               ) : null}
             </div>

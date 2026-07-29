@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { declinePurchase, markFulfilled } from '@/app/actions'
 import type { Purchase } from '@/lib/session'
+import { tender } from '@/lib/tender'
 import { Notice } from './ui'
 
 /**
@@ -55,7 +56,7 @@ export function PurchaseList({
             >
               <p className="t-title break-words text-ink">{p.title}</p>
               <p className="t-small mt-1 text-ink-muted">
-                <span className="tabular">T{p.price}</span>
+                <span className="tabular">{tender(p.price)}</span>
                 {' · '}
                 {p.iBought ? `you asked ${partnerFirstName}` : `${partnerFirstName} asked you`}
               </p>
@@ -112,7 +113,7 @@ export function PurchaseList({
             <div key={p.id} className="flex items-baseline justify-between gap-3 py-1">
               <span className="t-small min-w-0 truncate text-ink-muted">{p.title}</span>
               <span className="t-small shrink-0 tabular text-ink-faint">
-                T{p.price} ·{' '}
+                {tender(p.price)} ·{' '}
                 {p.status === 'fulfilled' ? 'done' : 'refunded'}
               </span>
             </div>

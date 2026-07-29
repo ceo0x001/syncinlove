@@ -83,6 +83,7 @@ for suite in supabase/tests/phase1_flow.sql supabase/tests/phase3_tender.sql; do
   run -q -f supabase/tests/_supabase_stubs.sql >/dev/null
   run -q -f supabase/migrations/0001_phase1_loop.sql   2>&1 | grep -v 'does not exist, skipping' || true
   run -q -f supabase/migrations/0002_phase3_tender.sql 2>&1 | grep -v 'does not exist, skipping' || true
+  run -q -f supabase/migrations/0003_tender_scale.sql  2>&1 | grep -v 'does not exist, skipping' || true
   run -q -f supabase/seed/questions.sql >/dev/null
 
   echo "  ── $(basename "$suite")"

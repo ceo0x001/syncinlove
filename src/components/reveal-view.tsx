@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { withPartnerName } from '@/lib/questions/bank'
 import type { AnswerPayload, ChoiceFacet, Facet, Question, ScaleFacet } from '@/lib/questions/types'
 import { NEUTRAL_MATCH, scoreFacet } from '@/lib/sync/score'
+import { tender } from '@/lib/tender'
 import { ShareCardButton } from './share-card-button'
 import { Button, Rule } from './ui'
 
@@ -150,7 +151,7 @@ export function RevealView(props: RevealProps) {
               money, and the connection is the entire thesis of the product. */}
           {earned !== null ? (
             <span className="t-small tabular text-ink-muted">
-              T{earned} each
+              {tender(earned)} each
             </span>
           ) : null}
         </div>

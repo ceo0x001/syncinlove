@@ -7,6 +7,7 @@ import { createInvite, hashToken } from '@/lib/invite/token'
 import { questionForDay } from '@/lib/questions/bank'
 import { validatePayload } from '@/lib/questions/validate'
 import { isValidTimeZone } from '@/lib/sync/day'
+import { MENU_PRICE_CEILING, tender } from '@/lib/tender'
 
 /**
  * Every action re-checks who the caller is.
@@ -265,8 +266,8 @@ export async function saveMenuItem(
 
   if (title.length < 2) return { error: 'Give it a name.' }
   if (title.length > 90) return { error: 'A little shorter?' }
-  if (!Number.isInteger(price) || price < 1 || price > 600) {
-    return { error: 'Price it between T1 and T600.' }
+  if (!Number.isInteger(price) || price < 1 || price > MENU_PRICE_CEILING) {
+    return { error: `Price it between T1 and ${tender(MENU_PRICE_CEILING)}.` }
   }
 
   const supabase = await createClient()

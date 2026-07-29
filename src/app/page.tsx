@@ -9,6 +9,7 @@ import { isConfigured } from '@/lib/supabase/env'
 import { formatCountdown } from '@/lib/sync/day'
 import { loadHome, type Economy, type HomeState } from '@/lib/session'
 import { settleOpenDays } from '@/app/actions'
+import { tender } from '@/lib/tender'
 
 export const dynamic = 'force-dynamic'
 
@@ -88,7 +89,7 @@ function Hub({ home }: { home: HomeState }) {
             ) : null}
             {economy && partner ? (
               <Link href="/menu" className="t-label tabular hover:text-ink">
-                T{economy.mine.balance}
+                {tender(economy.mine.balance)}
               </Link>
             ) : null}
           </span>
@@ -104,7 +105,7 @@ function Hub({ home }: { home: HomeState }) {
             <div className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
               <p className="t-label">You’ve got tender</p>
               <h2 className="t-question text-ink">
-                T{economy.mine.balance}, and nothing to spend it on.
+                {tender(economy.mine.balance)}, and nothing to spend it on.
               </h2>
               <p className="t-body text-ink-muted">
                 Tender only buys things off {partner.firstName}’s menu — and they can
@@ -267,7 +268,7 @@ function MenuSummary({
       <p className="t-label">Tender</p>
 
       <p className="t-body text-ink-muted">
-        You have <span className="tabular text-ink">T{economy.mine.balance}</span> to
+        You have <span className="tabular text-ink">{tender(economy.mine.balance)}</span> to
         spend on {partnerFirstName}&rsquo;s menu.
         {economy.needsMoreItems > 0
           ? ` Write ${economy.needsMoreItems} more thing${economy.needsMoreItems === 1 ? '' : 's'} on yours to unlock spending.`
