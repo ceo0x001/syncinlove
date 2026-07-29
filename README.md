@@ -77,7 +77,9 @@ The second is generated from the TypeScript question bank. After editing
 ### 4. Make the email code a code
 
 **Authentication → Emails → Change Email Address.** Make sure the template
-includes `{{ .Token }}`, which renders the six-digit code.
+includes `{{ .Token }}`, which renders the numeric code. Its length is a
+project setting (Authentication → Sign In / Providers → Email → OTP length,
+6-10); the app accepts any length in that range rather than assuming 6.
 
 This matters more than it looks. A magic link tapped from a mail app often opens
 in a *different browser* than the one holding the anonymous session — so the
@@ -263,7 +265,7 @@ Check propagation with `vercel domains inspect syncinlove.us`.
 
 Supabase's built-in mailer allows only a few messages per hour **and** won't let
 you edit templates at all — which matters, because the Change Email template
-needs `{{ .Token }}` to send a six-digit code rather than only a link. Custom
+needs `{{ .Token }}` to send a numeric code rather than only a link. Custom
 SMTP unlocks both.
 
 1. **Resend** — create an account, add `syncinlove.us` as a sending domain, and

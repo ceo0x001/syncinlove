@@ -79,13 +79,14 @@ export function ClaimEmail({
     <form action={verifyAction} className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
       <input type="hidden" name="email" value={email} />
 
+      {/* No fixed length: Supabase's OTP length is a project setting (6-10). */}
       <TextField
-        label="Six-digit code"
+        label="Your code"
         name="code"
         inputMode="numeric"
         autoComplete="one-time-code"
         pattern="[0-9]*"
-        maxLength={6}
+        maxLength={10}
         enterKeyHint="done"
         required
         autoFocus

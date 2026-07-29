@@ -162,7 +162,7 @@ export async function submitAnswer(
 /**
  * Step one of the email claim: attach an address to the anonymous account.
  *
- * Supabase sends a confirmation containing both a link and a 6-digit code. The
+ * Supabase sends a confirmation containing both a link and a numeric code. The
  * code is the one that matters — a link opened from a mail app frequently lands
  * in a different browser than the one holding this session, which would break
  * the upgrade-in-place at exactly the wrong moment and leave the user with two
@@ -197,7 +197,12 @@ export async function verifyClaimCode(
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const code = String(formData.get('code') ?? '').replace(/\D/g, '')
 
-  if (code.length !== 6) return { error: 'The code is six digits.' }
+  // Supabase's OTP length is a project setting, configurable from 6 to 10 —
+  // don't hard-code 6, or raising it silently locks everyone out of their own
+  // account with a "wrong length" error while the code they were sent is valid.
+  if (code.length < 6 || code.length > 10) {
+    return { error: 'That code doesn’t look right — check you copied all of it.' }
+  }
 
   const supabase = await createClient()
   const { error } = await supabase.auth.verifyOtp({
