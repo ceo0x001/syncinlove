@@ -78,6 +78,15 @@ export async function startSession(
       return { error: friendlyAuthError(error?.message) }
     }
     user = data.user
+
+    // TEMPORARY: signups are completing server-side (profile, pair, email all
+    // land) while the browser comes back with no session at all. Narrowing down
+    // whether the session exists here and simply fails to reach the client.
+    console.warn('[startSession] anonymous session created:', {
+      userId: data.user.id,
+      hasSession: Boolean(data.session),
+      hasAccessToken: Boolean(data.session?.access_token),
+    })
   }
 
   // Attach the address BEFORE writing a profile or a pairing, so an address that
@@ -136,6 +145,16 @@ export async function startSession(
       p_expires_at: invite.expiresAt.toISOString(),
     })
     if (error) return { error: error.message }
+  }
+
+  // TEMPORARY: does the session still resolve at the very end of the action,
+  // immediately before the redirect the browser fails to arrive authenticated on?
+  {
+    const { data: check } = await supabase.auth.getUser()
+    console.warn('[startSession] about to redirect:', {
+      userId: check.user?.id ?? null,
+      isAnonymous: check.user?.is_anonymous ?? null,
+    })
   }
 
   revalidatePath('/')

@@ -27,9 +27,17 @@ export async function createClient() {
           for (const { name, value, options } of cookiesToSet) {
             cookieStore.set(name, value, options)
           }
-        } catch {
+        } catch (error) {
           // Server Components cannot set cookies. Session refresh is handled in
           // proxy.ts, which can, so swallowing this is correct rather than lossy.
+          //
+          // TEMPORARY: logged while chasing signups that complete server-side but
+          // leave the browser with no session. If this fires during a Server
+          // Action, the swallow is NOT harmless — it is dropping a fresh session.
+          console.warn('[supabase/server] setAll could not write cookies:', {
+            names: cookiesToSet.map((c) => c.name),
+            error: error instanceof Error ? error.message : String(error),
+          })
         }
       },
     },
