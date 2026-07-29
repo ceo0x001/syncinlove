@@ -122,6 +122,9 @@ function Wallets({
           </p>
           <p className="t-small mt-1 text-ink-faint">
             {daysOfSyncing(economy.mine.balance)} days of syncing
+            {economy.mine.received > 0
+              ? ` · ${tender(economy.mine.received)} of it earned by doing things`
+              : ''}
           </p>
         </div>
         <div className="text-right">
@@ -132,6 +135,16 @@ function Wallets({
           </p>
         </div>
       </div>
+
+      {economy.pilingUp ? (
+        <div className="rounded-[0.75rem] bg-accent-wash px-4 py-3">
+          <p className="t-small text-ink">
+            Your tender is piling up faster than you&rsquo;re spending it. Nothing
+            on {theirName}&rsquo;s menu costs enough to matter any more — worth the
+            two of you repricing.
+          </p>
+        </div>
+      ) : null}
 
       {myAvg !== null || theirAvg !== null ? (
         <div className="rounded-[0.75rem] bg-paper-sunken px-4 py-3">

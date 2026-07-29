@@ -72,7 +72,7 @@ export function PurchaseList({
                       onClick={() => act(p.id, markFulfilled)}
                       className="t-small font-medium text-accent underline decoration-transparent underline-offset-4 hover:decoration-current disabled:opacity-40"
                     >
-                      They did it
+                      They did it — pay {partnerFirstName}
                     </button>
                     <button
                       type="button"
@@ -86,7 +86,9 @@ export function PurchaseList({
                 ) : (
                   <>
                     <p className="t-small text-ink-muted">
-                      Yours to honour whenever. No clock on it.
+                      Yours to honour whenever. No clock on it — and{' '}
+                      <span className="tabular">{tender(p.price)}</span> comes to you
+                      once they confirm it happened.
                     </p>
                     <button
                       type="button"

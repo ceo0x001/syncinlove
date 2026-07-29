@@ -71,8 +71,16 @@ export interface Purchase {
 export interface Wallet {
   /** Derived from the ledger; there is no stored total to drift. */
   balance: number
-  /** Credits only. What the Rich List will rank on — never the net balance. */
+  /**
+   * Payouts and streak bonuses only. What the Rich List ranks on.
+   *
+   * Deliberately excludes tender received for honouring requests — otherwise a
+   * couple could pass the same amount back and forth forever and both appear as
+   * billionaires. The list measures attention; the balance reflects generosity.
+   */
   earned: number
+  /** Tender received for honouring requests. A different thing from earned. */
+  received: number
 }
 
 export interface Economy {
@@ -88,6 +96,18 @@ export interface Economy {
   needsMoreItems: number
   /** True once holding unspent tender makes the menu prompt land as an itch. */
   shouldPromptMenu: boolean
+  /** Tender committed to requests that haven't settled yet. */
+  held: number
+  /**
+   * True when a balance has outrun what there is to spend it on.
+   *
+   * Transfers mean the money supply only grows — roughly 60,000 a day per couple,
+   * none of which ever leaves. Prices are self-set and repriceable, which is the
+   * negotiation the economy is meant to settle through, but nobody reprices
+   * unprompted. So this is a mirror rather than a rule: decay or expiry would read
+   * as punishment for playing well.
+   */
+  pilingUp: boolean
 }
 
 export interface HomeState {
@@ -266,15 +286,31 @@ async function loadEconomy(
 ): Promise<Economy> {
   const supabase = await createClient()
 
-  const [balanceRes, earnedRes, theirBalanceRes, theirEarnedRes, itemsRes, purchasesRes, changesRes] =
+  const [
+    balanceRes,
+    earnedRes,
+    receivedRes,
+    heldRes,
+    theirBalanceRes,
+    theirEarnedRes,
+    theirReceivedRes,
+    itemsRes,
+    purchasesRes,
+    changesRes,
+  ] =
     await Promise.all([
       supabase.rpc('tender_balance', { p_user_id: me.id }),
       supabase.rpc('tender_earned', { p_user_id: me.id }),
+      supabase.rpc('tender_received', { p_user_id: me.id }),
+      supabase.rpc('tender_held'),
       partnerId
         ? supabase.rpc('tender_balance', { p_user_id: partnerId })
         : Promise.resolve({ data: 0 }),
       partnerId
         ? supabase.rpc('tender_earned', { p_user_id: partnerId })
+        : Promise.resolve({ data: 0 }),
+      partnerId
+        ? supabase.rpc('tender_received', { p_user_id: partnerId })
         : Promise.resolve({ data: 0 }),
       supabase
         .from('menu_items')
@@ -328,10 +364,12 @@ async function loadEconomy(
   const mine: Wallet = {
     balance: Number(balanceRes.data ?? 0),
     earned: Number(earnedRes.data ?? 0),
+    received: Number(receivedRes.data ?? 0),
   }
   const theirs: Wallet = {
     balance: Number(theirBalanceRes.data ?? 0),
     earned: Number(theirEarnedRes.data ?? 0),
+    received: Number(theirReceivedRes.data ?? 0),
   }
 
   const activeOwn = myMenu.filter((i) => i.active).length
@@ -354,6 +392,12 @@ async function loadEconomy(
     canSpend: !needsEmail && needsMoreItems === 0,
     needsEmail,
     needsMoreItems,
+    held: Number(heldRes.data ?? 0),
+    // Ten times the dearest thing they could ask for. Past that, the balance has
+    // stopped constraining anything and repricing is the honest fix.
+    pilingUp:
+      theirMenu.length > 0 &&
+      mine.balance > 10 * Math.max(...theirMenu.map((i) => i.price)),
     // The whole reason the menu ask waits: asked at signup it's homework, asked
     // once there's tender sitting unspent it's an itch.
     shouldPromptMenu: activeOwn === 0 && mine.balance > 0,

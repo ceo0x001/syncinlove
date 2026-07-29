@@ -26,7 +26,7 @@ export function TheirMenu({
   const [error, setError] = useState<string | null>(null)
   const [, startTransition] = useTransition()
 
-  const { theirMenu, mine, canSpend, needsEmail, needsMoreItems } = economy
+  const { theirMenu, mine, canSpend, needsEmail, needsMoreItems, held } = economy
 
   if (theirMenu.length === 0) {
     return (
@@ -103,6 +103,14 @@ export function TheirMenu({
       })}
 
       {error ? <Notice tone="error">{error}</Notice> : null}
+
+      {held > 0 ? (
+        <p className="t-small text-ink-muted">
+          <span className="tabular">{tender(held)}</span> is held against requests
+          you&rsquo;ve made. It reaches {partnerFirstName} when you confirm they did
+          it, and comes back to you if they say no.
+        </p>
+      ) : null}
 
       <p className="t-small text-ink-faint">
         Asking is asking. {partnerFirstName} can say no and the tender comes

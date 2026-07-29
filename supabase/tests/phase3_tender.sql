@@ -225,7 +225,36 @@ select assert(
   (select status from public.purchases limit 1) = 'fulfilled',
   'the buyer can mark it done'
 );
-select assert(public.tender_balance(:'bob') = 27000, 'fulfilment moves no further money');
+
+-- Honouring a request pays the person who honoured it. The tender was held
+-- against the purchase from the moment it was asked for; it moves now.
+select assert(public.tender_balance(:'bob') = 27000, 'the buyer is not debited twice');
+select assert(
+  public.tender_balance(:'alice') = 37000 + 10000,
+  'confirming it done pays the seller'
+);
+select assert(
+  public.tender_received(:'alice') = 10000,
+  'received is tracked apart from earned'
+);
+
+-- The Rich List must not be wash-tradable by passing tender back and forth.
+select assert(
+  public.tender_earned(:'alice') = 37000,
+  'a transfer does not count as earning'
+);
+
+-- Fulfilment can only pay once.
+do $$
+begin
+  perform public.mark_purchase_fulfilled((select id from public.purchases limit 1));
+exception when sqlstate '42501' then
+  raise notice 'ok — a settled purchase cannot be marked done again';
+end $$;
+select assert(
+  (select count(*) from public.tender_entries where reason = 'fulfilled') = 1,
+  'a purchase pays its seller exactly once'
+);
 
 -- ---------------------------------------------------------------------------
 -- Declining refunds in full. This is what makes tender a nudge, not a debt.
@@ -255,6 +284,10 @@ select assert(
 );
 select assert(public.tender_balance(:'bob') = 27000, 'declining refunds in full');
 select assert(
+  public.tender_balance(:'alice') = 47000,
+  'declining pays the seller nothing — the money goes back, not across'
+);
+select assert(
   (select count(*) from public.tender_entries where reason = 'refund') = 1,
   'the refund is a ledger entry, not an edit'
 );
@@ -276,6 +309,10 @@ end $$;
 select assert(
   public.tender_earned(:'bob') = 37000,
   'earned counts payouts only — spending does not reduce it'
+);
+select assert(
+  public.tender_held() = 0,
+  'nothing is left held once every request has settled'
 );
 select assert(
   public.tender_earned(:'bob') > public.tender_balance(:'bob'),
