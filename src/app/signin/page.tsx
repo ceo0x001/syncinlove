@@ -2,14 +2,20 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { SetupNotice } from '@/components/setup-notice'
 import { SignInForm } from '@/components/signin-form'
-import { Screen, Wordmark } from '@/components/ui'
+import { Notice, Screen, Wordmark } from '@/components/ui'
 import { isConfigured } from '@/lib/supabase/env'
 import { getMe } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
 
-export default async function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ problem?: string }>
+}) {
   if (!isConfigured()) return <SetupNotice />
+
+  const { problem } = await searchParams
 
   // Somebody already signed in properly has nothing to do here.
   const me = await getMe()
@@ -27,6 +33,10 @@ export default async function SignInPage() {
             password — there never was one.
           </p>
         </div>
+
+        {/* Set by /auth/callback when a link couldn't be honoured. Saying why
+            beats silently showing a signup form, which is what happened before. */}
+        {problem ? <Notice tone="error">{problem}</Notice> : null}
 
         <SignInForm />
 
