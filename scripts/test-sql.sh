@@ -71,7 +71,7 @@ FAILED=0
 echo "→ running assertions"
 echo
 
-for suite in supabase/tests/phase1_flow.sql supabase/tests/phase3_tender.sql; do
+for suite in supabase/tests/phase1_flow.sql supabase/tests/phase3_tender.sql supabase/tests/phase4_vault.sql; do
   db="t_$(basename "$suite" .sql)"
 
   admin -c "drop database if exists $db" -c "create database $db" >/dev/null
