@@ -101,7 +101,12 @@ export async function startSession(
     // Anything else — a rate-limited mailer, a transient failure — must not cost
     // somebody the account they are in the middle of making. They can confirm from
     // the banner on the home screen.
-    console.warn('[startSession] could not send the claim code:', emailError.message)
+    console.warn('[startSession] could not send the claim code:', {
+      message: emailError.message,
+      status: emailError.status,
+      code: emailError.code,
+      name: emailError.name,
+    })
   }
 
   const { error: profileError } = await supabase.from('profiles').upsert(
