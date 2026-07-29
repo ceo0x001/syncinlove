@@ -37,15 +37,13 @@ function Welcome() {
         <Wordmark size="lg" />
 
         <div className="stack" style={{ ['--stack-gap' as string]: '1.25rem' }}>
-          <h1 className="t-question text-ink">
-            One question a day.
-            <br />
-            Answered twice.
-          </h1>
-          <p className="t-body max-w-[20rem] text-ink-muted">
-            Once honestly, for you. Once as a guess at what your person will say.
-            Neither of you sees anything until you both have.
+          <h1 className="t-question text-ink">Find out if they really know you.</h1>
+          <p className="t-body max-w-[26rem] text-ink-muted">
+            One question a day. You answer, then guess their answer. Guess right,
+            earn a tender. Spend tenders on their menu — the small things
+            they&rsquo;ve already told you they love.
           </p>
+          <p className="t-small text-ink-muted">Free · 30 seconds a day</p>
         </div>
 
         <EntryForm />

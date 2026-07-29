@@ -104,7 +104,7 @@ export function EntryForm({
       ) : null}
 
       <Button type="submit" disabled={pending}>
-        {pending ? 'One moment…' : joining ? 'Start answering' : 'Begin'}
+        {pending ? 'One moment…' : joining ? 'Start answering' : "See today's question"}
       </Button>
     </form>
   )
