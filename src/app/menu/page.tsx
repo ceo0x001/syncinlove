@@ -26,6 +26,8 @@ export default async function MenuPage() {
 
   const { economy, partner } = home
   const them = partner?.firstName ?? 'your partner'
+  // Capitalised variant for anywhere the name opens a sentence or a heading.
+  const Them = partner?.firstName ?? 'Your partner'
 
   return (
     <Screen>
@@ -43,7 +45,7 @@ export default async function MenuPage() {
 
         <section className="stack" style={{ ['--stack-gap' as string]: '1.25rem' }}>
           <div>
-            <h2 className="t-question text-ink">{them}’s menu</h2>
+            <h2 className="t-question text-ink">{Them}’s menu</h2>
             <p className="t-body mt-2 text-ink-muted">
               What they’re willing to do, at their prices.
             </p>
@@ -162,7 +164,7 @@ function Wallets({
                 {theirName}’s averages <span className="tabular">{tender(theirAvg)}</span>
               </>
             ) : (
-              <>{theirName} hasn’t either</>
+              <>{theirName} hasn’t priced anything yet</>
             )}
           </p>
           {redeemed.length > 0 ? (
