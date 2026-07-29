@@ -49,6 +49,16 @@ function Welcome() {
         </div>
 
         <EntryForm />
+
+        <p className="t-small text-ink-muted">
+          Been here before?{' '}
+          <Link
+            href="/signin"
+            className="text-ink underline decoration-hairline-strong underline-offset-4"
+          >
+            Sign in with your email
+          </Link>
+        </p>
       </div>
     </Screen>
   )

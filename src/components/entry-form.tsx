@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { startSession } from '@/app/actions'
 import { Button, Checkbox, Notice, TextField } from './ui'
 
@@ -86,7 +87,21 @@ export function EntryForm({
 
       <Checkbox name="adult" label="I’m 18 or older." />
 
-      {state?.error ? <Notice tone="error">{state.error}</Notice> : null}
+      {state?.error ? (
+        <Notice tone="error">
+          {state.error}
+          {/* The case that stranded somebody: an address that already has an
+              account. Signup cannot reach it, so say where to go. */}
+          {state.signIn ? (
+            <>
+              {' '}
+              <Link href="/signin" className="text-ink underline underline-offset-4">
+                Sign in
+              </Link>
+            </>
+          ) : null}
+        </Notice>
+      ) : null}
 
       <Button type="submit" disabled={pending}>
         {pending ? 'One moment…' : joining ? 'Start answering' : 'Begin'}

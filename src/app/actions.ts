@@ -20,6 +20,8 @@ import { MENU_PRICE_CEILING, tender } from '@/lib/tender'
 export interface ActionResult {
   error?: string
   ok?: boolean
+  /** Set when the right next step is signing in rather than signing up. */
+  signIn?: boolean
 }
 
 const NAME_MAX = 40
@@ -78,6 +80,30 @@ export async function startSession(
     user = data.user
   }
 
+  // Attach the address BEFORE writing a profile or a pairing, so an address that
+  // already belongs to somebody leaves nothing behind — no half-made account, no
+  // stray pairing. The profile-less anonymous user is swept by the Phase 5 job.
+  const { error: emailError } = await supabase.auth.updateUser({ email })
+
+  if (emailError) {
+    const message = emailError.message.toLowerCase()
+
+    // The case that actually bit somebody: typing an address that already has an
+    // account on a new browser. This used to warn to the server console and carry
+    // on, quietly creating a second empty account instead of reaching the first.
+    if (message.includes('already') || message.includes('registered')) {
+      return {
+        error: 'That address already has an account. Sign in instead.',
+        signIn: true,
+      }
+    }
+
+    // Anything else — a rate-limited mailer, a transient failure — must not cost
+    // somebody the account they are in the middle of making. They can confirm from
+    // the banner on the home screen.
+    console.warn('[startSession] could not send the claim code:', emailError.message)
+  }
+
   const { error: profileError } = await supabase.from('profiles').upsert(
     {
       id: user.id,
@@ -89,14 +115,6 @@ export async function startSession(
 
   if (profileError) {
     return { error: 'Could not save that name. Try again?' }
-  }
-
-  // Attach the address and send the code straight away. Deliberately not fatal
-  // if it fails: a rate-limited mailer or a typo must not cost somebody the
-  // account they just created, and the claim card will still be waiting.
-  const { error: emailError } = await supabase.auth.updateUser({ email })
-  if (emailError) {
-    console.warn('[startSession] could not send the claim code:', emailError.message)
   }
 
   if (typeof inviteToken === 'string' && inviteToken.length > 0) {
@@ -499,4 +517,83 @@ export async function burnEverything(confirm: string): Promise<ActionResult> {
   if (error) return { error: error.message }
   await supabase.auth.signOut()
   return { ok: true }
+}
+
+
+/* ---------------------------------------------------------------------------
+   Signing in
+
+   There was no login at all before this — only signup, which mints a fresh
+   anonymous account and then attaches an address. On a new browser, typing an
+   address that already had an account therefore could not reach it.
+   --------------------------------------------------------------------------- */
+
+/**
+ * Email a sign-in code.
+ *
+ * `shouldCreateUser: false` matters twice over. It stops a typo silently creating
+ * an empty account, and it keeps the semantics honest: this is a sign-in, not a
+ * back door into signup.
+ *
+ * The reply is identical whether or not the address exists, so this cannot be
+ * used to find out who has an account.
+ */
+export async function sendSignInCode(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const email = String(formData.get('email') ?? '').trim().toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    return { error: 'That doesn’t look like an email address.' }
+  }
+
+  const supabase = await createClient()
+
+  // Any session in this browser is abandoned deliberately. Signing in as somebody
+  // else while still holding another session is how people end up looking at the
+  // wrong account and thinking their data is gone.
+  await supabase.auth.signOut()
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false },
+  })
+
+  if (error) {
+    const message = error.message.toLowerCase()
+    // Deliberately swallowed: "no user found" would confirm which addresses have
+    // accounts. Rate limits are worth surfacing, since they are actionable.
+    if (message.includes('rate') || message.includes('too many')) {
+      return { error: friendlyAuthError(error.message) }
+    }
+  }
+
+  return { ok: true }
+}
+
+/** Verify the code and land in the account. */
+export async function verifySignInCode(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const email = String(formData.get('email') ?? '').trim().toLowerCase()
+  const code = String(formData.get('code') ?? '').replace(/\D/g, '')
+
+  if (code.length < 6 || code.length > 10) {
+    return { error: 'That code doesn’t look right — check you copied all of it.' }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.verifyOtp({
+    email,
+    token: code,
+    // 'email' here, not 'email_change' — this is a sign-in, not confirming a new
+    // address on an existing account.
+    type: 'email',
+  })
+
+  if (error) return { error: friendlyAuthError(error.message) }
+
+  revalidatePath('/')
+  redirect('/')
 }
