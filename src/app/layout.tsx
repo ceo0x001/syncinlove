@@ -25,7 +25,7 @@ const instrumentSerif = Instrument_Serif({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://syncinlove.us'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://syncin.love'),
   title: 'SyncinLove',
   description: 'One question a day, for two people.',
   applicationName: 'SyncinLove',

@@ -231,7 +231,7 @@ export async function GET(
             fontFamily: 'InterSemi',
           }}
         >
-          syncinlove.us
+          syncin.love
         </div>
       </div>
     ),
