@@ -5,6 +5,7 @@ import {
   burnEverything,
   endPairing,
   exportArchive,
+  signOutSession,
   updateProfile,
 } from '@/app/actions'
 import type { Me } from '@/lib/session'
@@ -96,6 +97,97 @@ export function ProfileForm({ me }: { me: Me }) {
         {pending ? 'Saving…' : 'Save'}
       </Button>
     </form>
+  )
+}
+
+/**
+ * Signing out of this browser.
+ *
+ * Two different actions wearing one label, and the difference is the whole point.
+ *
+ * With a confirmed address this is routine: sign out here, sign back in there with
+ * an emailed code. Nothing is at stake, so it is one click.
+ *
+ * Without one, the session cookie in this browser is the only thing that proves
+ * the account is yours. Signing out does not delete anything — it abandons it,
+ * with the streak and the answers still sitting there unreachable. Somebody lost
+ * an account exactly that way, so that version asks a second time and says plainly
+ * what it costs. It is deliberately the slower of the two paths.
+ */
+export function SignOutForm({ secured }: { secured: boolean }) {
+  const [confirming, setConfirming] = useState(false)
+  const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  function go() {
+    startTransition(async () => {
+      const result = await signOutSession()
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+      // A full load, not a client transition: everything cached in this tab
+      // belongs to the session that just ended.
+      window.location.href = '/'
+    })
+  }
+
+  if (secured) {
+    return (
+      <div className="stack" style={{ ['--stack-gap' as string]: '0.625rem' }}>
+        <Button variant="quiet" disabled={pending} onClick={go}>
+          {pending ? 'Signing you out…' : 'Sign out'}
+        </Button>
+        {error ? <Notice tone="error">{error}</Notice> : null}
+      </div>
+    )
+  }
+
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        className="t-small text-ink-muted underline decoration-hairline-strong underline-offset-4 hover:text-ink"
+      >
+        Sign out of this browser
+      </button>
+    )
+  }
+
+  return (
+    <div
+      className="stack rounded-[0.875rem] border border-hairline bg-paper-raised p-5"
+      style={{ ['--stack-gap' as string]: '1.25rem' }}
+    >
+      <div>
+        <p className="t-title text-ink">You won’t be able to get back in.</p>
+        <p className="t-small mt-1 text-ink-muted">
+          This account has no confirmed email, so this browser is the only proof
+          it’s yours. Signing out doesn’t delete anything — your streak, answers
+          and tender stay exactly where they are, and nobody will ever reach them
+          again. Confirm the code above first and this becomes undoable.
+        </p>
+      </div>
+
+      {error ? <Notice tone="error">{error}</Notice> : null}
+
+      <div className="stack" style={{ ['--stack-gap' as string]: '0.625rem' }}>
+        <Button variant="quiet" disabled={pending} onClick={go}>
+          {pending ? 'Signing you out…' : 'Sign out and lose this account'}
+        </Button>
+        <Button
+          variant="ghost"
+          disabled={pending}
+          onClick={() => {
+            setConfirming(false)
+            setError(null)
+          }}
+        >
+          Keep me signed in
+        </Button>
+      </div>
+    </div>
   )
 }
 

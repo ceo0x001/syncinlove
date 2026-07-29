@@ -515,6 +515,25 @@ export async function endPairing(letters: 'burn' | 'keep'): Promise<ActionResult
   return { ok: true }
 }
 
+/**
+ * Sign out of this browser.
+ *
+ * Leaves everything intact — this is not a delete. Whether it is *recoverable*
+ * depends entirely on whether the address was confirmed: a confirmed account
+ * signs back in with an emailed code, and an unconfirmed one cannot sign back in
+ * at all, because the session cookie was the only evidence it belonged to you.
+ * The UI has to say which of those two it is, so it asks twice in the second case.
+ */
+export async function signOutSession(): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.auth.signOut()
+  if (error) return { error: friendlyAuthError(error.message) }
+
+  revalidatePath('/')
+  revalidatePath('/settings')
+  return { ok: true }
+}
+
 /** Destroy this account and everything they wrote. No undo. */
 export async function burnEverything(confirm: string): Promise<ActionResult> {
   const supabase = await createClient()

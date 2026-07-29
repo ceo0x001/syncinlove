@@ -7,6 +7,7 @@ import {
   EndPairingForm,
   ExportButton,
   ProfileForm,
+  SignOutForm,
 } from '@/components/settings-forms'
 import { Button, Card, Rule, Screen, Wordmark } from '@/components/ui'
 import { isConfigured } from '@/lib/supabase/env'
@@ -52,15 +53,21 @@ export default async function SettingsPage() {
                   pendingEmail={me.pendingEmail}
                   reason="So your streak and answers survive a new phone or a cleared browser."
                 />
+                {/* Kept inside the unsecured card, next to the thing that makes
+                    it safe, rather than filed away as a neutral option. */}
+                <SignOutForm secured={false} />
               </div>
             </Card>
           </>
         ) : (
           <>
             <Rule />
-            <div className="stack" style={{ ['--stack-gap' as string]: '0.5rem' }}>
-              <p className="t-label">Signed in as</p>
-              <p className="t-body text-ink">{me.email}</p>
+            <div className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
+              <div className="stack" style={{ ['--stack-gap' as string]: '0.5rem' }}>
+                <p className="t-label">Signed in as</p>
+                <p className="t-body text-ink">{me.email}</p>
+              </div>
+              <SignOutForm secured />
             </div>
           </>
         )}
