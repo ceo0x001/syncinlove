@@ -5,21 +5,20 @@ import { sendClaimCode, verifyClaimCode } from '@/app/actions'
 import { Button, Notice, TextField } from './ui'
 
 /**
- * Attaching an email to an anonymous account.
+ * Confirming the address, which is what makes an account recoverable.
  *
- * Asked at the moment the email is obviously in service of something the person
- * already wants — the reveal, or keeping a streak — never as a gate in front of
- * it. Skippable, always.
+ * The address itself is now collected on the signup form, so this usually opens
+ * straight at the code step. It stays on screen until confirmed rather than being
+ * a card you can wave away — a dismissible ask is exactly what somebody skipped
+ * before losing an account outright.
  *
- * The account already exists; this upgrades it in place, so the streak, the
+ * The account already exists; confirming upgrades it in place, so the streak, the
  * answers and the pairing all survive with the same id.
  *
- * Placement matters more than any of this code: if somebody closes the tab
- * without ever attaching an address, and the browser storage holding their
- * anonymous session is lost — which is routine, since most invite links get
- * tapped inside WhatsApp's in-app browser and then reopened in Safari — the
- * account is unreachable. That is why the ask happens right after submitting
- * rather than after the reveal.
+ * Why it matters this much: an unconfirmed account cannot be proved to be yours.
+ * Lose the browser storage holding the session — routine, since most invite links
+ * get tapped inside WhatsApp and reopened in Safari — and it is gone for good,
+ * with no recovery path that does not involve trusting somebody's word.
  */
 
 /** Survives a reload; cleared on success. Session-scoped, never persisted. */
@@ -28,17 +27,24 @@ const PENDING_KEY = 'sync.pendingClaimEmail'
 export function ClaimEmail({
   reason,
   onDone,
+  pendingEmail,
 }: {
   reason: string
   onDone?: () => void
+  /**
+   * An address already attached at signup and awaiting its code. When present the
+   * form opens straight at the code step — asking for the address again would be
+   * asking for something already given.
+   */
+  pendingEmail?: string | null
 }) {
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(pendingEmail ?? '')
   const [restored, setRestored] = useState(false)
   const [sendState, sendAction, sending] = useActionState(sendClaimCode, null)
   const [verifyState, verifyAction, verifying] = useActionState(verifyClaimCode, null)
 
   const justSent = Boolean(sendState?.ok)
-  const sent = justSent || restored
+  const sent = justSent || restored || Boolean(pendingEmail)
   const done = Boolean(verifyState?.ok)
 
   /**

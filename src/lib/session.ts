@@ -9,10 +9,21 @@ import { siteUrl } from '@/lib/supabase/env'
 
 export interface Me {
   id: string
-  /** Anonymous until they attach an email. Everything still works either way. */
+  /** Anonymous until the address is confirmed. Everything works either way. */
   isAnonymous: boolean
   email: string | null
+  /**
+   * An address attached but not yet confirmed.
+   *
+   * Present from signup onward, since the address is collected on the first form
+   * now. Until the code is entered the account still cannot be recovered, so the
+   * UI keeps saying so rather than asking once.
+   */
+  pendingEmail: string | null
   firstName: string | null
+  /** What a leaderboard would print. Their choice, not their partner's. */
+  listDisplay: 'name' | 'initial' | 'alias'
+  listAlias: string | null
 }
 
 export interface Partner {
@@ -136,7 +147,7 @@ export async function getMe(): Promise<Me | null> {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('first_name')
+    .select('first_name, list_display, list_alias')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -144,7 +155,10 @@ export async function getMe(): Promise<Me | null> {
     id: user.id,
     isAnonymous: user.is_anonymous ?? false,
     email: user.email ?? null,
+    pendingEmail: user.new_email ?? null,
     firstName: profile?.first_name ?? null,
+    listDisplay: (profile?.list_display ?? 'initial') as Me['listDisplay'],
+    listAlias: profile?.list_alias ?? null,
   }
 }
 

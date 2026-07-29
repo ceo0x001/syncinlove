@@ -47,9 +47,13 @@ export async function startSession(
   const adult = formData.get('adult') === 'on'
   const inviteToken = formData.get('inviteToken')
   const rawTz = formData.get('timeZone')
+  const email = String(formData.get('email') ?? '').trim().toLowerCase()
 
   if (!firstName) {
     return { error: 'A first name, or whatever you want to be called.' }
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    return { error: 'An email, so you can get back into this account.' }
   }
   if (!adult) {
     return { error: 'Sync is for adults — please confirm you’re 18 or over.' }
@@ -85,6 +89,14 @@ export async function startSession(
 
   if (profileError) {
     return { error: 'Could not save that name. Try again?' }
+  }
+
+  // Attach the address and send the code straight away. Deliberately not fatal
+  // if it fails: a rate-limited mailer or a typo must not cost somebody the
+  // account they just created, and the claim card will still be waiting.
+  const { error: emailError } = await supabase.auth.updateUser({ email })
+  if (emailError) {
+    console.warn('[startSession] could not send the claim code:', emailError.message)
   }
 
   if (typeof inviteToken === 'string' && inviteToken.length > 0) {
@@ -363,4 +375,128 @@ export async function declinePurchase(purchaseId: string): Promise<ActionResult>
 export async function settleOpenDays(): Promise<void> {
   const supabase = await createClient()
   await supabase.rpc('settle_open_days')
+}
+
+/* ---------------------------------------------------------------------------
+   Identity
+   --------------------------------------------------------------------------- */
+
+/**
+ * Rename yourself, and choose what a leaderboard would print.
+ *
+ * Two separate decisions deliberately. The name is what the app calls you and
+ * what your partner sees; the display choice is what a public list would show,
+ * and putting two real first names on one discloses that two named people are a
+ * couple. Each person controls their own; neither can publish the other.
+ */
+export async function updateProfile(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const firstName = cleanName(formData.get('firstName'))
+  const rawDisplay = String(formData.get('listDisplay') ?? '')
+  const alias = String(formData.get('listAlias') ?? '').trim()
+
+  if (!firstName) return { error: 'A name, or whatever you want to be called.' }
+  if (!['name', 'initial', 'alias'].includes(rawDisplay)) {
+    return { error: 'Pick what shows on the list.' }
+  }
+  if (rawDisplay === 'alias' && alias.length < 1) {
+    return { error: 'Type the alias you want shown.' }
+  }
+  if (alias.length > 24) return { error: 'That alias is a bit long.' }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('update_profile', {
+    p_first_name: firstName,
+    p_list_display: rawDisplay,
+    p_list_alias: alias || null,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/settings')
+  revalidatePath('/')
+  return { ok: true }
+}
+
+/* ---------------------------------------------------------------------------
+   Phase 4 — the vault and the exits
+   --------------------------------------------------------------------------- */
+
+export async function sealLetter(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const title = String(formData.get('title') ?? '').trim()
+  const body = String(formData.get('body') ?? '').trim()
+  const unlockOn = String(formData.get('unlockOn') ?? '')
+  const dateVisible = formData.get('dateVisible') === 'on'
+
+  if (title.length < 1) return { error: 'Give it a title — they’ll see that much.' }
+  if (title.length > 80) return { error: 'A shorter title?' }
+  if (body.length < 1) return { error: 'The letter is empty.' }
+  if (body.length > 8000) return { error: 'That’s longer than the vault will hold.' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(unlockOn)) return { error: 'Pick a date to open it.' }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('seal_letter', {
+    p_title: title,
+    p_body: body,
+    p_unlock_on: unlockOn,
+    p_date_visible: dateVisible,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/vault')
+  return { ok: true }
+}
+
+export async function openLetter(letterId: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('open_letter', { p_letter_id: letterId })
+  if (error) return { error: error.message }
+  revalidatePath('/vault')
+  return { ok: true }
+}
+
+/**
+ * The recipient destroys a sealed letter without reading it.
+ *
+ * No confirmation dialog beyond the click, and no reason asked. Somebody
+ * refusing a message from a person they may no longer want to hear from should
+ * not have to explain themselves to the app.
+ */
+export async function destroyLetter(letterId: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('destroy_letter', { p_letter_id: letterId })
+  if (error) return { error: error.message }
+  revalidatePath('/vault')
+  return { ok: true }
+}
+
+/** The whole archive as JSON, for the person to keep. */
+export async function exportArchive(): Promise<{ data?: string; error?: string }> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('export_archive')
+  if (error) return { error: error.message }
+  return { data: JSON.stringify(data, null, 2) }
+}
+
+/** End the pairing. `letters` is 'burn' or 'keep'; the UI defaults to burn. */
+export async function endPairing(letters: 'burn' | 'keep'): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('end_pairing', { p_letters: letters })
+  if (error) return { error: error.message }
+  revalidatePath('/')
+  revalidatePath('/settings')
+  return { ok: true }
+}
+
+/** Destroy this account and everything they wrote. No undo. */
+export async function burnEverything(confirm: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('burn_everything', { p_confirm: confirm })
+  if (error) return { error: error.message }
+  await supabase.auth.signOut()
+  return { ok: true }
 }

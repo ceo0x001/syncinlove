@@ -71,7 +71,7 @@ function NoPair() {
 }
 
 function Hub({ home }: { home: HomeState }) {
-  const { me, partner, invite, openDays, streak, secondsToRollover, economy } = home
+  const { me, partner, invite, openDays, streak, secondsToRollover, economy, completedDays } = home
 
   const today = openDays.find((day) => !day.isGrace)
   const grace = openDays.find((day) => day.isGrace)
@@ -92,6 +92,9 @@ function Hub({ home }: { home: HomeState }) {
                 {tender(economy.mine.balance)}
               </Link>
             ) : null}
+            <Link href="/settings" className="t-label hover:text-ink">
+              You
+            </Link>
           </span>
         </header>
 
@@ -166,16 +169,49 @@ function Hub({ home }: { home: HomeState }) {
           />
         ) : null}
 
-        {/* The email ask, once there is something to lose. Never a gate. */}
-        {me.isAnonymous && (today?.answered || streak > 0) ? (
+        {/* Persistent, not a one-time card.
+            A dismissible card is exactly what somebody skipped before losing an
+            account outright — an anonymous session is unrecoverable, so this stays
+            on screen until the code is entered. */}
+        {me.isAnonymous ? (
           <>
             <Rule />
             <Card>
               <div className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
-                <p className="t-title text-ink">Keep this if you switch browsers.</p>
-                <ClaimEmail reason="So your streak and answers survive a new phone or a cleared browser. We never email anything you've written." />
+                <p className="t-title text-ink">
+                  {me.pendingEmail
+                    ? 'One step left to secure this account.'
+                    : 'Add an email so this account is yours to keep.'}
+                </p>
+                <p className="t-body text-ink-muted">
+                  Until you confirm it, losing this browser loses everything —
+                  there&rsquo;s no way to prove an unconfirmed account is yours.
+                </p>
+                <ClaimEmail
+                  pendingEmail={me.pendingEmail}
+                  reason="So your streak and answers survive a new phone or a cleared browser. We never email anything you've written."
+                />
               </div>
             </Card>
+          </>
+        ) : null}
+
+        {partner ? (
+          <>
+            <Rule />
+            <div className="stack" style={{ ['--stack-gap' as string]: '0.75rem' }}>
+              <p className="t-label">The vault</p>
+              <p className="t-body text-ink-muted">
+                {completedDays.length >= 30
+                  ? 'Letters sealed until a date you choose.'
+                  : `Opens after 30 days together. You’re at ${completedDays.length}.`}
+              </p>
+              <Link href="/vault" className="block">
+                <Button variant="quiet">
+                  {completedDays.length >= 30 ? 'Open the vault' : 'Look inside'}
+                </Button>
+              </Link>
+            </div>
           </>
         ) : null}
 
