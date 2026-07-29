@@ -202,6 +202,90 @@ relationship, a safety problem.
 
 ---
 
+## Deployment
+
+Live on Vercel under the `webuildcore` scope, project `syncinlove`. Deploy with:
+
+```bash
+vercel deploy --prod
+```
+
+### Environment variables
+
+Set in Vercel for **production** and **preview**. Preview deliberately omits
+`NEXT_PUBLIC_SITE_URL` so `siteUrl()` falls back to Vercel's own host vars —
+otherwise every invite generated on a preview would point at localhost.
+
+| Variable | Production value |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | the Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon / publishable key |
+| `NEXT_PUBLIC_SITE_URL` | `https://syncinlove.us` |
+| `INVITE_SECRET` | a **different** value from local, so dev and production invite links stay isolated |
+
+### If a deploy is "blocked because the commit author did not have contributing access"
+
+This is not a plan limit, and upgrading won't fix it. Vercel resolves the
+**commit author's email** to a user with project access; if the email doesn't
+match your account, it reads the commit as coming from a collaborator, which
+Hobby doesn't allow on private repos. Check with:
+
+```bash
+git log -1 --format='%ae'
+```
+
+If it's wrong, re-author and force-push:
+
+```bash
+git rebase <last-good-sha> --exec 'git commit --amend --no-edit --reset-author'
+```
+
+### Deployment Protection
+
+New projects default to `ssoProtection: all_except_custom_domains`, which serves
+a Vercel login page on `*.vercel.app`. The custom domain is unaffected, but it
+blocks testing a deployment before DNS resolves. Turn it off under
+**Settings → Deployment Protection**.
+
+### DNS
+
+The domain is registered at Namecheap, so DNS stays there and Vercel just needs
+records pointing at it:
+
+| Type | Host | Value |
+|---|---|---|
+| `A` | `@` | `76.76.21.21` |
+| `CNAME` | `www` | `cname.vercel-dns.com` |
+
+Check propagation with `vercel domains inspect syncinlove.us`.
+
+## Email
+
+Supabase's built-in mailer allows only a few messages per hour **and** won't let
+you edit templates at all — which matters, because the Change Email template
+needs `{{ .Token }}` to send a six-digit code rather than only a link. Custom
+SMTP unlocks both.
+
+1. **Resend** — create an account, add `syncinlove.us` as a sending domain, and
+   put the SPF/DKIM records it gives you into Namecheap. Then create an API key.
+2. **Supabase → Project Settings → Authentication → SMTP Settings**, enable
+   custom SMTP:
+   - Host `smtp.resend.com`, Port `465`
+   - Username `resend`, Password *the Resend API key*
+   - Sender `hello@syncinlove.us`, Name `SyncinLove`
+3. **Supabase → Authentication → Emails → Change Email Address** — the template
+   is now editable. Make sure the body includes `{{ .Token }}`.
+4. **Supabase → Authentication → URL Configuration** — set Site URL to
+   `https://syncinlove.us`.
+
+Until step 3 is done, the email claim sends a link instead of a code. That works
+when it opens in the same browser, and silently doesn't when it doesn't — which
+is the common case, because most invite links get tapped inside WhatsApp's
+in-app browser and reopened elsewhere. Treat it as required before real couples
+use this, not optional.
+
+---
+
 ## Roadmap
 
 | Phase | What lands | Status |
