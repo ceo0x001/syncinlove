@@ -29,6 +29,43 @@ export default async function Home() {
   return <Hub home={home} />
 }
 
+function CoinIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-3.5 shrink-0"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M9.75 14.5c0 .97 1 1.5 2.25 1.5s2.25-.6 2.25-1.55c0-1.95-4.5-.85-4.5-2.9 0-.95 1-1.55 2.25-1.55s2.25.53 2.25 1.5" />
+      <path d="M12 8.25v1M12 15v1" />
+    </svg>
+  )
+}
+
+function ClockIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-3.5 shrink-0"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5v4.75l3.25 1.9" />
+    </svg>
+  )
+}
+
 /** First contact. No email, no password, no tour. */
 function Welcome() {
   return (
@@ -43,7 +80,15 @@ function Welcome() {
             earn a tender. Spend tenders on their menu — the small things
             they&rsquo;ve already told you they love.
           </p>
-          <p className="t-small text-ink-muted">Free · 30 seconds a day</p>
+          <div className="flex items-center gap-2 t-small text-ink-muted">
+            <span className="inline-flex items-center gap-1">
+              <CoinIcon /> Free
+            </span>
+            <span aria-hidden="true">·</span>
+            <span className="inline-flex items-center gap-1">
+              <ClockIcon /> 30 seconds a day
+            </span>
+          </div>
         </div>
 
         <EntryForm />
