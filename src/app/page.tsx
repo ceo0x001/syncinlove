@@ -151,6 +151,11 @@ function Hub({ home }: { home: HomeState }) {
                 {tender(economy.mine.balance)}
               </Link>
             ) : null}
+            {partner ? (
+              <Link href="/rich-list" className="t-label hover:text-ink">
+                List
+              </Link>
+            ) : null}
             <Link href="/settings" className="t-label hover:text-ink">
               You
             </Link>

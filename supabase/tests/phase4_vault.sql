@@ -9,6 +9,16 @@
 \set QUIET on
 \pset pager off
 
+-- The pair below lives in UTC, and the letters policy compares unlock_on
+-- against the PAIR's clock: (now() at time zone p.time_zone)::date. This suite
+-- writes unlock dates with current_date, which is the session's clock. Those two
+-- disagree for part of every day — on a machine in Africa/Lagos, between local
+-- midnight and 01:00 UTC the session is already tomorrow while the pair is still
+-- yesterday, so "an unlocked letter becomes readable" failed for exactly that
+-- hour and passed the other twenty-three. Pinning the session to UTC makes both
+-- clocks the same one.
+set time zone 'UTC';
+
 \set alice '11111111-1111-4111-8111-111111111111'
 \set bob   '22222222-2222-4222-8222-222222222222'
 

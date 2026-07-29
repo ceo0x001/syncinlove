@@ -23,6 +23,7 @@ import { Button, Notice, TextField } from './ui'
 export function ProfileForm({ me }: { me: Me }) {
   const [state, formAction, pending] = useActionState(updateProfile, null)
   const [display, setDisplay] = useState(me.listDisplay)
+  const [optIn, setOptIn] = useState(me.listOptIn)
 
   const initial = (me.firstName ?? '?').trim().charAt(0).toUpperCase()
 
@@ -38,13 +39,38 @@ export function ProfileForm({ me }: { me: Me }) {
       />
 
       <fieldset className="border-0 p-0">
-        <legend className="t-label mb-1 block">If you ever join the Rich List</legend>
+        <legend className="t-label mb-1 block">The Rich List</legend>
         <p className="t-small mb-3 text-ink-muted">
           A public list showing two real first names tells everyone those two people
-          are a couple. Your choice, not your partner&rsquo;s — and the list is
-          opt-in for both of you regardless.
+          are a couple. So it&rsquo;s off unless you say otherwise, and it takes both
+          of you — either one of you withdrawing takes the couple off it.
         </p>
 
+        <label
+          className={
+            'mb-3 flex min-h-[3rem] cursor-pointer items-start gap-3 rounded-[0.625rem] border px-4 py-3 ' +
+            (optIn ? 'border-accent bg-accent-wash' : 'border-hairline bg-paper-raised')
+          }
+        >
+          <input
+            type="checkbox"
+            name="listOptIn"
+            checked={optIn}
+            onChange={(event) => setOptIn(event.target.checked)}
+            className="mt-0.5 size-[1.125rem] shrink-0 accent-[var(--accent)]"
+          />
+          <span>
+            <span className="t-body block text-ink">Put us on the Rich List</span>
+            <span className="t-small text-ink-muted">
+              Ranked on tender earned, never held — spending on each other costs
+              you nothing.
+            </span>
+          </span>
+        </label>
+
+        {/* Shown regardless of the checkbox: deciding how you'd be printed
+            before agreeing to be printed is the right order. */}
+        <p className="t-label mb-2 block">Shown as</p>
         <div className="flex flex-col gap-2">
           {(
             [

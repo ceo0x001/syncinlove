@@ -21,9 +21,18 @@ export interface Me {
    */
   pendingEmail: string | null
   firstName: string | null
-  /** What a leaderboard would print. Their choice, not their partner's. */
+  /** What the Rich List would print. Their choice, not their partner's. */
   listDisplay: 'name' | 'initial' | 'alias'
   listAlias: string | null
+  /**
+   * Whether they agree to appear on the Rich List at all.
+   *
+   * Separate from listDisplay, which only decides how they'd be printed. Both
+   * partners must say yes before the couple shows up, and either withdrawing
+   * removes it — a public list of two first names is a public statement that
+   * those two are a couple, so one person cannot make it for both.
+   */
+  listOptIn: boolean
 }
 
 export interface Partner {
@@ -147,7 +156,7 @@ export async function getMe(): Promise<Me | null> {
 
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('first_name, list_display, list_alias')
+    .select('first_name, list_display, list_alias, list_opt_in')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -172,6 +181,9 @@ export async function getMe(): Promise<Me | null> {
     firstName: profile?.first_name ?? null,
     listDisplay: (profile?.list_display ?? 'initial') as Me['listDisplay'],
     listAlias: profile?.list_alias ?? null,
+    // Defaults to false, and a failed read must also read as false — never
+    // publish somebody because a query went wrong.
+    listOptIn: profile?.list_opt_in === true,
   }
 }
 
@@ -428,5 +440,85 @@ async function loadEconomy(
     // The whole reason the menu ask waits: asked at signup it's homework, asked
     // once there's tender sitting unspent it's an itch.
     shouldPromptMenu: activeOwn === 0 && mine.balance > 0,
+  }
+}
+
+export type RichListWindow = 'week' | 'all'
+
+export interface RichListRow {
+  rank: number
+  labelA: string
+  labelB: string
+  earned: number
+  isMine: boolean
+}
+
+export interface RichListStanding {
+  optedIn: boolean
+  partnerOptedIn: boolean
+  /** Null when the couple isn't on this window's board at all. */
+  rank: number | null
+  earned: number
+}
+
+export interface RichList {
+  window: RichListWindow
+  rows: RichListRow[]
+  standing: RichListStanding | null
+}
+
+/**
+ * The Rich List.
+ *
+ * Both halves come from SECURITY DEFINER functions rather than a table read,
+ * because the ledger is deliberately readable only inside your own pair and that
+ * is not being relaxed for a leaderboard. What comes back is aggregates and the
+ * display labels people chose — no ids, no ledger rows, no names anybody didn't
+ * agree to show.
+ */
+export async function loadRichList(
+  window: RichListWindow = 'all',
+): Promise<RichList> {
+  const supabase = await createClient()
+
+  const [listRes, meRes] = await Promise.all([
+    supabase.rpc('rich_list', { p_window: window, p_limit: 25 }),
+    supabase.rpc('rich_list_me', { p_window: window }),
+  ])
+
+  const rows: RichListRow[] = (listRes.data ?? []).map(
+    (r: {
+      rank: number
+      label_a: string
+      label_b: string
+      earned: number
+      is_mine: boolean
+    }) => ({
+      rank: Number(r.rank),
+      labelA: r.label_a,
+      labelB: r.label_b,
+      earned: Number(r.earned),
+      isMine: r.is_mine === true,
+    }),
+  )
+
+  const raw = meRes.data as {
+    opted_in?: boolean
+    partner_opted_in?: boolean
+    rank?: number | null
+    earned?: number
+  } | null
+
+  return {
+    window,
+    rows,
+    standing: raw
+      ? {
+          optedIn: raw.opted_in === true,
+          partnerOptedIn: raw.partner_opted_in === true,
+          rank: raw.rank ?? null,
+          earned: Number(raw.earned ?? 0),
+        }
+      : null,
   }
 }

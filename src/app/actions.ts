@@ -419,6 +419,9 @@ export async function updateProfile(
   const firstName = cleanName(formData.get('firstName'))
   const rawDisplay = String(formData.get('listDisplay') ?? '')
   const alias = String(formData.get('listAlias') ?? '').trim()
+  // An unchecked checkbox sends nothing, so absence is a deliberate "no" here
+  // rather than "unchanged" — this form always submits the current state of it.
+  const optIn = formData.get('listOptIn') === 'on'
 
   if (!firstName) return { error: 'A name, or whatever you want to be called.' }
   if (!['name', 'initial', 'alias'].includes(rawDisplay)) {
@@ -434,6 +437,7 @@ export async function updateProfile(
     p_first_name: firstName,
     p_list_display: rawDisplay,
     p_list_alias: alias || null,
+    p_list_opt_in: optIn,
   })
   if (error) return { error: error.message }
 
