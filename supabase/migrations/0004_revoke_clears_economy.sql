@@ -101,3 +101,66 @@ $$;
 
 revoke all on function public.revoke_claim() from public;
 grant execute on function public.revoke_claim() to authenticated;
+
+
+-- ----------------------------------------------------------------------------
+-- One-off remediation
+--
+-- The fix above only governs future revokes. Any pairing already revoked under
+-- the old function is sitting in the broken state right now: money for a deleted
+-- reveal, the wrong person's menu still listed, and — the part that actually
+-- breaks things — the inviter marked as already paid for those days, so the next
+-- partner to answer would earn while they earned nothing.
+--
+-- The signature is precise. A pairing back to 'pending' with one member, no
+-- reveals, and yet ledger entries that could only exist if a partner had been
+-- present.
+--
+-- 'solo' entries are deliberately spared: those are the completion floor paid to
+-- somebody who answered while nobody else was there, which is legitimately theirs
+-- and has nothing to do with the wrong person having briefly joined.
+-- ----------------------------------------------------------------------------
+
+do $$
+declare
+  v_pair    record;
+  v_cleaned int := 0;
+begin
+  for v_pair in
+    select p.id
+    from public.pairs p
+    where p.status = 'pending'
+      and (
+        select count(*) from public.pair_members m
+        where m.pair_id = p.id and m.left_at is null
+      ) = 1
+      and not exists (select 1 from public.reveals r where r.pair_id = p.id)
+      and exists (
+        select 1 from public.tender_entries e
+        where e.pair_id = p.id and e.reason <> 'solo'
+      )
+  loop
+    delete from public.purchases where pair_id = v_pair.id;
+
+    delete from public.tender_entries
+    where pair_id = v_pair.id and reason <> 'solo';
+
+    -- Menu items belonging to somebody who is no longer in the pairing.
+    delete from public.menu_items mi
+    where mi.pair_id = v_pair.id
+      and not exists (
+        select 1 from public.pair_members m
+        where m.pair_id = mi.pair_id
+          and m.user_id = mi.owner_id
+          and m.left_at is null
+      );
+
+    v_cleaned := v_cleaned + 1;
+  end loop;
+
+  if v_cleaned > 0 then
+    raise notice 'remediated % pairing(s) revoked before the fix existed', v_cleaned;
+  else
+    raise notice 'nothing to remediate';
+  end if;
+end $$;
