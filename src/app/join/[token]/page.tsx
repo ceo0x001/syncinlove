@@ -148,7 +148,10 @@ function Frame({ title, children }: { title: string; children: React.ReactNode }
   return (
     <Screen>
       <div className="stack" style={{ ['--stack-gap' as string]: '2rem' }}>
-        <Wordmark size="lg" />
+        {/* Not a link here. Wandering off this screen means signing up without
+            the token, which makes a pairing of your own and leaves the invite
+            unclaimable. Leaving is still offered below, deliberately and named. */}
+        <Wordmark size="lg" href={null} />
         <h1 className="t-question text-ink">{title}</h1>
         {children}
         <Link href="/" className="block">

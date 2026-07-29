@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { ComponentProps, ReactNode } from 'react'
 
 /**
@@ -26,14 +27,24 @@ import type { ComponentProps, ReactNode } from 'react'
  * choosing in JavaScript flashes on first paint. That correctness is worth more
  * here than next/image's optimisation of a 40kB PNG, and it keeps the logo on
  * exactly the same `prefers-color-scheme` signal as every colour token.
+ *
+ * Links home by default, because a logo that isn't clickable is a small
+ * papercut on every screen. Pass `href={null}` where leaving would cost
+ * something — the invite screen, where navigating away drops the token.
  */
-export function Wordmark({ size = 'sm' }: { size?: 'sm' | 'lg' }) {
+export function Wordmark({
+  size = 'sm',
+  href = '/',
+}: {
+  size?: 'sm' | 'lg'
+  href?: string | null
+}) {
   // The lockup carries its own wordmark, so the compact size can't go much below
   // this before "Sync" stops being readable.
   const height = size === 'lg' ? 64 : 32
   const width = (920 / 400) * height
 
-  return (
+  const mark = (
     <picture>
       <source
         srcSet="/brand/synclogo-dark.png"
@@ -54,6 +65,20 @@ export function Wordmark({ size = 'sm' }: { size?: 'sm' | 'lg' }) {
         style={{ height }}
       />
     </picture>
+  )
+
+  if (!href) return mark
+
+  return (
+    <Link
+      href={href}
+      // Names the link explicitly rather than leaning on the image's alt, so it
+      // announces where it goes and not just what it is.
+      aria-label="SyncinLove — back to today"
+      className="inline-block transition-opacity hover:opacity-70"
+    >
+      {mark}
+    </Link>
   )
 }
 
