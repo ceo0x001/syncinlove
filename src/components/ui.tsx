@@ -1,4 +1,3 @@
-import Image from 'next/image'
 import type { ComponentProps, ReactNode } from 'react'
 
 /**
@@ -16,24 +15,45 @@ import type { ComponentProps, ReactNode } from 'react'
  * screens, where this is the first thing anybody sees. `size="sm"` is the
  * compact header mark everywhere else.
  *
- * Priority-loaded because it is above the fold on every entry point, and a
- * logo that pops in late is the cheapest possible way to look unfinished.
+ * Two artworks: the default has a near-black wordmark, the dark-theme one
+ * carries it in coral so it reads against Deep Midnight. The hearts are
+ * identical in both.
+ *
+ * Uses `<picture>` rather than next/image, deliberately. The browser resolves
+ * which source to fetch from the media query before it downloads anything, so
+ * the right logo is the only one requested and there is never a frame of the
+ * wrong one — whereas rendering both and hiding one with CSS downloads both, and
+ * choosing in JavaScript flashes on first paint. That correctness is worth more
+ * here than next/image's optimisation of a 40kB PNG, and it keeps the logo on
+ * exactly the same `prefers-color-scheme` signal as every colour token.
  */
 export function Wordmark({ size = 'sm' }: { size?: 'sm' | 'lg' }) {
   // The lockup carries its own wordmark, so the compact size can't go much below
   // this before "Sync" stops being readable.
   const height = size === 'lg' ? 64 : 32
+  const width = (920 / 400) * height
 
   return (
-    <Image
-      src="/brand/synclogo.png"
-      alt="SyncinLove"
-      width={(920 / 400) * height}
-      height={height}
-      priority
-      className="block w-auto"
-      style={{ height }}
-    />
+    <picture>
+      <source
+        srcSet="/brand/synclogo-dark.png"
+        media="(prefers-color-scheme: dark)"
+        type="image/png"
+      />
+      {/* Plain img on purpose — see the note above. */}
+      <img
+        src="/brand/synclogo.png"
+        alt="SyncinLove"
+        width={width}
+        height={height}
+        // Above the fold on every entry point; a logo that pops in late is the
+        // cheapest possible way to look unfinished.
+        fetchPriority="high"
+        decoding="sync"
+        className="block w-auto"
+        style={{ height }}
+      />
+    </picture>
   )
 }
 
