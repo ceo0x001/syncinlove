@@ -72,7 +72,9 @@ function ItemRow({ item, onEdit }: { item: MenuItem; onEdit: () => void }) {
 
   return (
     <div
-      className={`rounded-[0.75rem] border border-hairline bg-paper-raised p-4 ${
+      // Coral edge on white: yours, the one you get asked for. Theirs is pink on
+      // the sunken surface.
+      className={`rounded-[0.75rem] border border-hairline border-l-[3px] border-l-accent bg-paper-raised p-4 ${
         item.active ? '' : 'opacity-55'
       }`}
     >
