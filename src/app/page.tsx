@@ -76,9 +76,14 @@ function Welcome() {
         <div className="stack" style={{ ['--stack-gap' as string]: '1.25rem' }}>
           <h1 className="t-question text-ink">Find out if they really know you.</h1>
           <p className="t-body max-w-[26rem] text-ink-muted">
-            One question a day. You answer, then guess their answer. Guess right,
-            earn a tender. Spend tenders on their menu — the small things
-            they&rsquo;ve already told you they love.
+            One question a day.
+            <br />
+            You answer, then guess theirs.
+            <br />
+            Guess right and earn tender.
+            <br />
+            Spend it on their menu — the small things they&rsquo;ve already told
+            you they love.
           </p>
           <div className="flex items-center gap-2 t-small text-ink-muted">
             <span className="inline-flex items-center gap-1">
