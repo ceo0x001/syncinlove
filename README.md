@@ -1,36 +1,218 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SyncinLove
 
-## Getting Started
+One question a day, for two people. Each partner answers it twice — once
+honestly for themselves, once guessing what the other will say. Neither sees
+anything until both have submitted. Then it opens, with a score for how well
+they read each other.
 
-First, run the development server:
+Production domain: **syncinlove.us**
+
+**Phase 1 of 5.** The loop works end to end. Tender, menus, letters and the
+Rich List come later — see [Roadmap](#roadmap).
+
+## Brand
+
+| Token | Hex | Use |
+|---|---|---|
+| Primary Coral | `#FF6B6B` | Buttons, key CTAs, highlights |
+| Secondary Pink | `#F43F8E` | Gradients, accents |
+| Gradient | `#F43F8E → #FF6B6B → #FF8A3D` | Primary CTAs; a very soft page wash |
+| Deep Midnight | `#0F172A` | Headings and UI text |
+| Warm White | `#FFFCFA` | Background |
+| Soft Peach | `#FFF3F0` | Cards |
+| Success / Warning / Error / Info | `#22C55E` `#F59E0B` `#EF4444` `#3B82F6` | Semantic states |
+
+All of these are CSS custom properties in [globals.css](src/app/globals.css),
+with a dark theme derived from Deep Midnight. Assets live in `public/brand/`;
+`src/app/icon.png` and `src/app/apple-icon.png` are picked up automatically by
+Next as the favicon and home-screen icon.
+
+**One accessibility note.** White on Primary Coral measures 2.8:1, which fails
+WCAG AA (4.5:1) and even AA-large (3:1). Primary buttons therefore use the brand
+gradient rather than flat coral, since leading with the pink lifts it to ~3.5:1 —
+better, still short of AA. If you want it to pass properly, the fix is a darker
+coral for interactive surfaces only (around `#D6455F`), keeping `#FF6B6B` for
+display. Flagging rather than deciding, since it's a brand call.
+
+---
+
+## Setup
+
+Four steps, about five minutes. The app shows a setup screen until they're done.
+
+### 1. Create a Supabase project
+
+At [supabase.com/dashboard](https://supabase.com/dashboard). Free tier is fine.
+Then open **Project Settings → API** and copy two values into `.env.local`:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+```
+
+The key is labelled *anon public* on older projects and *Publishable key* on
+newer ones. Either works. The `service_role` / secret key is deliberately not
+used anywhere — see [Security](#security).
+
+`INVITE_SECRET` is already generated in your `.env.local`. Keep it; changing it
+invalidates every outstanding invite link.
+
+### 2. Turn on anonymous sign-ins
+
+**Authentication → Sign In / Providers → Anonymous sign-ins.**
+
+This is what lets an invited partner start answering before they have an
+account. Without it, the first screen fails with a clear error.
+
+### 3. Run the SQL
+
+Paste these into the **SQL editor**, in order:
+
+1. `supabase/migrations/0001_phase1_loop.sql`
+2. `supabase/seed/questions.sql`
+
+The second is generated from the TypeScript question bank. After editing
+`src/lib/questions/bank.ts`, run `npm run seed:questions` and paste it again.
+
+### 4. Make the email code a code
+
+**Authentication → Emails → Change Email Address.** Make sure the template
+includes `{{ .Token }}`, which renders the six-digit code.
+
+This matters more than it looks. A magic link tapped from a mail app often opens
+in a *different browser* than the one holding the anonymous session — so the
+upgrade-in-place fails exactly when it's needed, and the user ends up with two
+accounts. A typed code keeps everything in one browser context.
+
+> **Note on email limits.** Supabase's built-in mailer allows only a few messages
+> per hour. That's enough to test with, but connect your own SMTP (Resend's free
+> tier is plenty) before real people use this.
+
+Then:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Restart after editing `.env.local` — Next only reads it at boot.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## How it fits together
 
-## Learn More
+```
+src/lib/questions/     the bank: 30 questions, typed, hand-ordered
+src/lib/sync/score.ts  scoring — pure arithmetic, no model
+src/lib/sync/day.ts    the pair calendar: day index, 30-hour window, streak
+src/lib/invite/        HMAC-signed invite links
+src/lib/session.ts     one loader for everything the home screen needs
+src/app/actions.ts     every mutation, each re-checking auth itself
+supabase/migrations/   schema, RLS, and the scoring function
+supabase/tests/        assertions run against a throwaway cluster
+```
 
-To learn more about Next.js, take a look at the following resources:
+### Two things worth knowing before changing anything
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**The question bank is the product.** The app is a weekend; thirty questions
+that are specific, answerable in two taps and not embarrassing took longer.
+`SEQUENCE` in `bank.ts` is hand-ordered so the first week stays light — a pair
+whose second question is *"what do you suspect I don't fully know about you"*
+does not come back for a third. Keep the ramp.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Scoring lives in two places, and SQL is the authority.** `score.ts` renders
+and tests; the plpgsql inside `submit_answer()` is what actually pays out,
+because it is the only thing that can see both answers at once. The same
+fixtures are asserted in both suites so they can't drift apart quietly.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Security
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The load-bearing promise is: **no person can read their partner's answer.** Not
+before the reveal, not after.
+
+That isn't enforced by a policy meaning *"you may read their answer once you've
+also submitted"*. That predicate is subtle and its failure mode is silent. Instead:
+
+- `answers` is readable **only by its author**. There is no policy under which a
+  partner can read it, so there is no predicate to get wrong.
+- There is no `INSERT` grant on `answers`. `submit_answer()` is the only way in,
+  so the window check and validation can't be bypassed.
+- No `UPDATE` or `DELETE` grant exists at all, which is what makes a submission
+  immutable.
+- When the second answer lands, a `SECURITY DEFINER` function computes the score
+  and writes a separate `reveals` row both partners may read.
+
+Consequence: **the app never needs a `service_role` key**, and no bug in
+application code can expose an un-revealed answer, because no code path in the
+app can reach one.
+
+Also true today: no user content is ever sent to any AI model. The question bank
+is hand-written and scoring is arithmetic.
+
+### Verifying it
+
+```bash
+npm run test:sql
+```
+
+Spins up a disposable Postgres cluster, applies the real migration unmodified,
+and asserts its way through the loop — including connecting as a genuine
+non-owner role and confirming one partner cannot read the other's answer even
+after the reveal. Nothing touches your Supabase project.
+
+```bash
+npm test
+```
+
+Scoring calibration, the pair calendar, the grace window, streaks, bank integrity.
+
+### Clearing out test data
+
+[supabase/maintenance/cleanup.sql](supabase/maintenance/cleanup.sql) has an
+inventory query, the orphaned-anonymous-account sweep (the Phase 5 hygiene job,
+manual until then), and a full reset. Run the inventory first — the destructive
+parts are commented out deliberately.
+
+---
+
+## Design notes
+
+A few decisions that look like details and aren't:
+
+**The slider shows no number.** A readout turns the question into a test — you
+start optimising digits instead of answering. The reveal draws the gap as two
+marks on one track, which lands immediately in a way "70 vs 45" doesn't.
+
+**Choices have no default.** A pre-selected option is an answer nobody gave,
+feeding a score that will pay out.
+
+**Scale scoring doubles the distance.** Plain `100 - distance` leaves a random
+guesser at 66 and every couple looks psychic. Doubled, a whole question's random
+baseline sits near 33, against the 75–95 an attuned pair scores.
+
+**The waiting screen shows the shape of the reveal.** The most likely way this
+app dies is somebody answering, hitting the invite wall, and their partner never
+coming. They see the real layout with the partner's side sealed, so they leave
+having seen what they're waiting for.
+
+**Notifications will never contain content.** "Ada answered. Your reveal is
+ready." Nothing else, ever — it's both a spoiler and, for someone in a bad
+relationship, a safety problem.
+
+---
+
+## Roadmap
+
+| Phase | What lands | Status |
+|---|---|---|
+| 1 | The loop: answer, guess, invite, gated reveal, sync score, streak | **done** |
+| 2 | The reveal as a showpiece, plus the share card | next |
+| 3 | Tender: wallets, menus, purchase and refund | |
+| 4 | Letter vault, export, burn everything, unpair | |
+| 5 | Nudges, freeze days, question bank to 90+, the Rich List | |
+
+Phase 3 note: record earnings as **ledger entries, not a balance counter**. The
+Rich List ranks on tender *earned*, never held — ranking on balance would
+publish a leaderboard of couples who never spend anything on each other, and put
+a price on the one behaviour the product exists to encourage.
