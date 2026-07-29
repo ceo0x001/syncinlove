@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { withPartnerName } from '@/lib/questions/bank'
 import type { AnswerPayload, ChoiceFacet, Facet, Question, ScaleFacet } from '@/lib/questions/types'
-import { scoreFacet } from '@/lib/sync/score'
+import { NEUTRAL_MATCH, scoreFacet } from '@/lib/sync/score'
 import { ShareCardButton } from './share-card-button'
 import { Button, Rule } from './ui'
 
@@ -46,6 +46,8 @@ export interface RevealProps {
   iReadThem: number
   /** How well they read me. */
   theyReadMe: number
+  /** Tender this day paid each of them, or null before Phase 3 data exists. */
+  earned: number | null
 }
 
 /** Stage gates. Milliseconds from mount. */
@@ -74,6 +76,7 @@ export function RevealView(props: RevealProps) {
     theirGuess,
     iReadThem,
     theyReadMe,
+    earned,
   } = props
 
   const { stage, reduced } = useRevealSequence()
@@ -133,11 +136,24 @@ export function RevealView(props: RevealProps) {
           {characterise(syncScore, theirFirstName)}
         </p>
 
-        {streak > 1 ? (
-          <p className="t-small mt-5 text-ink-faint" style={fade(at(2), { reduced, delay: 120 })}>
-            {streak} days running
-          </p>
-        ) : null}
+        <div
+          className="mt-5 flex items-center justify-center gap-3"
+          style={fade(at(2), { reduced, delay: 120 })}
+        >
+          {streak > 1 ? (
+            <span className="t-small text-ink-faint">{streak} days running</span>
+          ) : null}
+          {streak > 1 && earned !== null ? (
+            <span aria-hidden className="text-ink-faint">·</span>
+          ) : null}
+          {/* The payout belongs here. This is the screen where accuracy becomes
+              money, and the connection is the entire thesis of the product. */}
+          {earned !== null ? (
+            <span className="t-small tabular text-ink-muted">
+              T{earned} each
+            </span>
+          ) : null}
+        </div>
       </header>
 
       <Rule />
@@ -258,7 +274,14 @@ function Comparison({
   delay: number
   reduced: boolean
 }) {
-  const score = scoreFacet(facet.kind, truth, guess)
+  // Must pass the neutral ids, or a mutual non-answer renders as a full hit here
+  // while the database scored it at half.
+  const neutralIds =
+    facet.kind === 'choice'
+      ? facet.options.filter((o) => o.neutral).map((o) => o.id)
+      : undefined
+
+  const score = scoreFacet(facet.kind, truth, guess, neutralIds)
 
   if (facet.kind === 'choice') {
     return (
@@ -269,6 +292,7 @@ function Comparison({
         truth={truth}
         guess={guess}
         hit={score === 100}
+        neutralMatch={score === NEUTRAL_MATCH}
       />
     )
   }
@@ -295,6 +319,7 @@ function ChoiceComparison({
   truth,
   guess,
   hit,
+  neutralMatch,
 }: {
   facet: ChoiceFacet
   subject: string
@@ -302,6 +327,7 @@ function ChoiceComparison({
   truth: AnswerPayload[string] | undefined
   guess: AnswerPayload[string] | undefined
   hit: boolean
+  neutralMatch: boolean
 }) {
   const label = (id: unknown) => facet.options.find((o) => o.id === id)?.label ?? '—'
 
@@ -311,10 +337,19 @@ function ChoiceComparison({
       <p className="t-title text-ink">{label(truth)}</p>
 
       <div className="mt-3 flex items-start gap-2 border-t border-hairline pt-3">
-        <Mark hit={hit} />
+        <Mark hit={hit || neutralMatch} />
         <div>
           <p className="t-small text-ink-muted">{guesser} guessed</p>
-          <p className={`t-body ${hit ? 'text-ink' : 'text-ink-muted'}`}>{label(guess)}</p>
+          <p className={`t-body ${hit || neutralMatch ? 'text-ink' : 'text-ink-muted'}`}>
+            {label(guess)}
+          </p>
+          {/* Said out loud rather than silently docked — a score that quietly
+              disagrees with an obvious match reads as a bug, not a rule. */}
+          {neutralMatch ? (
+            <p className="t-small mt-1.5 text-ink-faint">
+              Matched — but neither of you gave much away.
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

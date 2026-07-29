@@ -7,12 +7,18 @@ import { SetupNotice } from '@/components/setup-notice'
 import { Button, Card, Rule, Screen, Wordmark } from '@/components/ui'
 import { isConfigured } from '@/lib/supabase/env'
 import { formatCountdown } from '@/lib/sync/day'
-import { loadHome, type HomeState } from '@/lib/session'
+import { loadHome, type Economy, type HomeState } from '@/lib/session'
+import { settleOpenDays } from '@/app/actions'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
   if (!isConfigured()) return <SetupNotice />
+
+  // Pays the completion floor for any day answered alone whose window has closed,
+  // so a silent partner never costs the person who showed up everything. No cron
+  // in this app — a page load is the only trigger needed, and it's idempotent.
+  await settleOpenDays()
 
   const home = await loadHome()
 
@@ -64,7 +70,7 @@ function NoPair() {
 }
 
 function Hub({ home }: { home: HomeState }) {
-  const { me, partner, invite, openDays, streak, secondsToRollover } = home
+  const { me, partner, invite, openDays, streak, secondsToRollover, economy } = home
 
   const today = openDays.find((day) => !day.isGrace)
   const grace = openDays.find((day) => day.isGrace)
@@ -74,14 +80,50 @@ function Hub({ home }: { home: HomeState }) {
       <div className="stack" style={{ ['--stack-gap' as string]: '2rem' }}>
         <header className="flex items-baseline justify-between gap-4">
           <Wordmark />
-          {streak > 0 ? (
-            <span className="t-label">
-              {streak} day{streak === 1 ? '' : 's'}
-            </span>
-          ) : null}
+          <span className="flex items-baseline gap-3">
+            {streak > 0 ? (
+              <span className="t-label">
+                {streak} day{streak === 1 ? '' : 's'}
+              </span>
+            ) : null}
+            {economy && partner ? (
+              <Link href="/menu" className="t-label tabular hover:text-ink">
+                T{economy.mine.balance}
+              </Link>
+            ) : null}
+          </span>
         </header>
 
         {today ? <TodayCard home={home} day={today} /> : null}
+
+        {/* The menu ask. Withheld until there is unspent tender sitting there,
+            because at signup it reads as homework and here it reads as an itch. */}
+        {economy?.shouldPromptMenu && partner ? (
+          <>
+            <Rule />
+            <div className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
+              <p className="t-label">You’ve got tender</p>
+              <h2 className="t-question text-ink">
+                T{economy.mine.balance}, and nothing to spend it on.
+              </h2>
+              <p className="t-body text-ink-muted">
+                Tender only buys things off {partner.firstName}’s menu — and they can
+                only spend on yours. Write down a few things you’re actually willing
+                to do, and put your own price on each.
+              </p>
+              <Link href="/menu" className="block">
+                <Button>Write my menu</Button>
+              </Link>
+            </div>
+          </>
+        ) : null}
+
+        {economy && partner && !economy.shouldPromptMenu ? (
+          <>
+            <Rule />
+            <MenuSummary economy={economy} partnerFirstName={partner.firstName} />
+          </>
+        ) : null}
 
         {grace && !grace.answered ? (
           <>
@@ -194,6 +236,60 @@ function TodayCard({ home, day }: { home: HomeState; day: HomeState['openDays'][
 
       <Link href={`/today?day=${day.dayIndex}`} className="block">
         <Button>Answer today’s question</Button>
+      </Link>
+    </div>
+  )
+}
+
+/**
+ * A quiet line about the economy once it's running.
+ *
+ * Shows outstanding requests either way, because an unfulfilled ask sitting
+ * visible is the entire enforcement mechanism — there are no timers and nothing
+ * ever goes overdue.
+ */
+function MenuSummary({
+  economy,
+  partnerFirstName,
+}: {
+  economy: Economy
+  partnerFirstName: string
+}) {
+  const owedByThem = economy.purchases.filter(
+    (p) => p.status === 'requested' && p.iBought,
+  ).length
+  const owedByMe = economy.purchases.filter(
+    (p) => p.status === 'requested' && !p.iBought,
+  ).length
+
+  return (
+    <div className="stack" style={{ ['--stack-gap' as string]: '0.75rem' }}>
+      <p className="t-label">Tender</p>
+
+      <p className="t-body text-ink-muted">
+        You have <span className="tabular text-ink">T{economy.mine.balance}</span> to
+        spend on {partnerFirstName}&rsquo;s menu.
+        {economy.needsMoreItems > 0
+          ? ` Write ${economy.needsMoreItems} more thing${economy.needsMoreItems === 1 ? '' : 's'} on yours to unlock spending.`
+          : ''}
+      </p>
+
+      {owedByMe > 0 ? (
+        <p className="t-body text-ink">
+          {owedByMe} thing{owedByMe === 1 ? '' : 's'} {partnerFirstName} has asked you
+          for. Whenever you like — there&rsquo;s no clock on it.
+        </p>
+      ) : null}
+
+      {owedByThem > 0 ? (
+        <p className="t-small text-ink-muted">
+          {owedByThem} thing{owedByThem === 1 ? '' : 's'} you&rsquo;ve asked for, not
+          marked done yet.
+        </p>
+      ) : null}
+
+      <Link href="/menu" className="block">
+        <Button variant="quiet">Menus and tender</Button>
       </Link>
     </div>
   )

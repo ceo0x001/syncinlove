@@ -49,6 +49,47 @@ export interface OpenDay {
   isGrace: boolean
 }
 
+export interface MenuItem {
+  id: string
+  title: string
+  price: number
+  active: boolean
+  /** Set when the price moved, so the change is visible rather than silent. */
+  lastPriceChange: { from: number; to: number; at: string } | null
+}
+
+export interface Purchase {
+  id: string
+  title: string
+  price: number
+  status: 'requested' | 'fulfilled' | 'declined'
+  /** True when the caller is the one who paid. */
+  iBought: boolean
+  createdAt: string
+}
+
+export interface Wallet {
+  /** Derived from the ledger; there is no stored total to drift. */
+  balance: number
+  /** Credits only. What the Rich List will rank on — never the net balance. */
+  earned: number
+}
+
+export interface Economy {
+  mine: Wallet
+  /** Their balance too. Nothing in the economy is hidden inside a pair. */
+  theirs: Wallet
+  myMenu: MenuItem[]
+  theirMenu: MenuItem[]
+  purchases: Purchase[]
+  /** Gates on spending, each with its own reason. */
+  canSpend: boolean
+  needsEmail: boolean
+  needsMoreItems: number
+  /** True once holding unspent tender makes the menu prompt land as an itch. */
+  shouldPromptMenu: boolean
+}
+
 export interface HomeState {
   me: Me
   partner: Partner | null
@@ -60,6 +101,8 @@ export interface HomeState {
   completedDays: number[]
   streak: number
   secondsToRollover: number
+  /** Null before a pairing exists. */
+  economy: Economy | null
 }
 
 /** The signed-in user, or null. Never throws on an absent session. */
@@ -116,6 +159,7 @@ export async function loadHome(): Promise<HomeState | null> {
       completedDays: [],
       streak: 0,
       secondsToRollover: 0,
+      economy: null,
     }
   }
 
@@ -204,5 +248,114 @@ export async function loadHome(): Promise<HomeState | null> {
     completedDays,
     streak: streakFrom(completedDays),
     secondsToRollover: secondsUntilRollover(now, pair.timeZone),
+    economy: await loadEconomy(pair.id, me, partnerId),
+  }
+}
+
+/**
+ * Wallets, menus and purchases.
+ *
+ * Balances come from `sum()` over the ledger rather than a stored total. That
+ * costs a little on read and buys the thing the Rich List needs: tender *earned*
+ * stays intact when somebody spends, which a net balance destroys.
+ */
+async function loadEconomy(
+  pairId: string,
+  me: Me,
+  partnerId: string | null,
+): Promise<Economy> {
+  const supabase = await createClient()
+
+  const [balanceRes, earnedRes, theirBalanceRes, theirEarnedRes, itemsRes, purchasesRes, changesRes] =
+    await Promise.all([
+      supabase.rpc('tender_balance', { p_user_id: me.id }),
+      supabase.rpc('tender_earned', { p_user_id: me.id }),
+      partnerId
+        ? supabase.rpc('tender_balance', { p_user_id: partnerId })
+        : Promise.resolve({ data: 0 }),
+      partnerId
+        ? supabase.rpc('tender_earned', { p_user_id: partnerId })
+        : Promise.resolve({ data: 0 }),
+      supabase
+        .from('menu_items')
+        .select('id, owner_id, title, price, active')
+        .eq('pair_id', pairId)
+        .order('price', { ascending: true }),
+      supabase
+        .from('purchases')
+        .select('id, title, price, status, buyer_id, created_at')
+        .eq('pair_id', pairId)
+        .order('created_at', { ascending: false })
+        .limit(40),
+      supabase
+        .from('menu_price_changes')
+        .select('item_id, old_price, new_price, changed_at')
+        .eq('pair_id', pairId)
+        .order('changed_at', { ascending: false }),
+    ])
+
+  // Most recent change per item, so the UI can say "was T40" rather than nothing.
+  const latestChange = new Map<string, { from: number; to: number; at: string }>()
+  for (const row of changesRes.data ?? []) {
+    if (!latestChange.has(row.item_id)) {
+      latestChange.set(row.item_id, {
+        from: row.old_price,
+        to: row.new_price,
+        at: row.changed_at,
+      })
+    }
+  }
+
+  const toItem = (row: {
+    id: string
+    title: string
+    price: number
+    active: boolean
+  }): MenuItem => ({
+    id: row.id,
+    title: row.title,
+    price: row.price,
+    active: row.active,
+    lastPriceChange: latestChange.get(row.id) ?? null,
+  })
+
+  const allItems = itemsRes.data ?? []
+  const myMenu = allItems.filter((i) => i.owner_id === me.id).map(toItem)
+  const theirMenu = allItems
+    .filter((i) => i.owner_id !== me.id && i.active)
+    .map(toItem)
+
+  const mine: Wallet = {
+    balance: Number(balanceRes.data ?? 0),
+    earned: Number(earnedRes.data ?? 0),
+  }
+  const theirs: Wallet = {
+    balance: Number(theirBalanceRes.data ?? 0),
+    earned: Number(theirEarnedRes.data ?? 0),
+  }
+
+  const activeOwn = myMenu.filter((i) => i.active).length
+  const needsMoreItems = Math.max(0, 3 - activeOwn)
+  const needsEmail = me.isAnonymous
+
+  return {
+    mine,
+    theirs,
+    myMenu,
+    theirMenu,
+    purchases: (purchasesRes.data ?? []).map((p) => ({
+      id: p.id,
+      title: p.title,
+      price: p.price,
+      status: p.status,
+      iBought: p.buyer_id === me.id,
+      createdAt: p.created_at,
+    })),
+    canSpend: !needsEmail && needsMoreItems === 0,
+    needsEmail,
+    needsMoreItems,
+    // The whole reason the menu ask waits: asked at signup it's homework, asked
+    // once there's tender sitting unspent it's an itch.
+    shouldPromptMenu: activeOwn === 0 && mine.balance > 0,
   }
 }

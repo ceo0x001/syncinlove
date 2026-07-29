@@ -46,13 +46,21 @@ for (const q of QUESTIONS) {
 const rows = QUESTIONS.map((q) => {
   const facets = q.facets.map((f) =>
     f.kind === 'choice'
-      ? { kind: f.kind, id: f.id, options: f.options.map((o) => ({ id: o.id })) }
+      ? {
+          kind: f.kind,
+          id: f.id,
+          // `neutral` travels with the option so the database scorer can
+          // half-score a mutual non-answer without knowing the copy.
+          options: f.options.map((o) =>
+            o.neutral ? { id: o.id, neutral: true } : { id: o.id },
+          ),
+        }
       : { kind: f.kind, id: f.id },
   )
 
   return (
     `  (${sqlString(q.id)}, ${sqlString(q.category)}, ${sqlString(q.prompt)}, ` +
-    `${sqlString(JSON.stringify(facets))}::jsonb, ${position.get(q.id)})`
+    `${sqlString(JSON.stringify(facets))}::jsonb, ${position.get(q.id)}, ${q.renewable})`
   )
 })
 
@@ -74,13 +82,14 @@ begin;
 -- unique index on sequence_position.
 update public.questions set sequence_position = null;
 
-insert into public.questions (id, category, prompt, facets, sequence_position) values
+insert into public.questions (id, category, prompt, facets, sequence_position, renewable) values
 ${rows.join(',\n')}
 on conflict (id) do update set
   category          = excluded.category,
   prompt            = excluded.prompt,
   facets            = excluded.facets,
-  sequence_position = excluded.sequence_position;
+  sequence_position = excluded.sequence_position,
+  renewable         = excluded.renewable;
 
 commit;
 

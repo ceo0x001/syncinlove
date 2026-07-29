@@ -135,9 +135,13 @@ select assert(
   'day 0 is the gentle opener, not a deep question'
 );
 
+-- The first pass walks the ramp in order. What happens past the end of it —
+-- renewable questions only — is asserted in phase3_tender.sql.
 select assert(
-  (public.question_for_day(0)).id = (public.question_for_day(30)).id,
-  'the rotation wraps at 30'
+  (public.question_for_day(1)).id = (
+    select id from public.questions where sequence_position = 1
+  ),
+  'the first pass follows the sequence in order'
 );
 
 -- ---------------------------------------------------------------------------

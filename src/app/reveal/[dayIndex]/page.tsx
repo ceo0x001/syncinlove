@@ -77,6 +77,19 @@ export default async function RevealPage({
   // retroactively claim a number that hadn't been earned yet.
   const streakThen = streakAsOf(home.completedDays, dayIndex)
 
+  // What this day actually paid, read from the ledger rather than recomputed —
+  // the entry is the record, and a formula change later must not rewrite history.
+  const { data: entry } = await supabase
+    .from('tender_entries')
+    .select('amount')
+    .eq('pair_id', home.pair.id)
+    .eq('user_id', home.me.id)
+    .eq('day_index', dayIndex)
+    .eq('reason', 'reveal')
+    .maybeSingle()
+
+  const earned = entry ? Number(entry.amount) : null
+
   return (
     <Screen>
       <RevealView
@@ -92,6 +105,7 @@ export default async function RevealPage({
         theirGuess={theirs.guess}
         iReadThem={iReadThem}
         theyReadMe={theyReadMe}
+        earned={earned}
       />
     </Screen>
   )

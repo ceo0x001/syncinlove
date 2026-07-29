@@ -58,24 +58,43 @@ for _ in $(seq 1 30); do
   sleep 0.3
 done
 
-psql -h 127.0.0.1 -p "$PORT" -U postgres -q -c "create database sync_test"
-
-run() {
-  psql -h 127.0.0.1 -p "$PORT" -U postgres -d sync_test -v ON_ERROR_STOP=1 "$@"
+admin() {
+  psql -h 127.0.0.1 -p "$PORT" -U postgres -q -v ON_ERROR_STOP=1 "$@"
 }
 
-echo "→ applying stubs, migration and seed"
-run -q -f supabase/tests/_supabase_stubs.sql >/dev/null
-run -q -f supabase/migrations/0001_phase1_loop.sql 2>&1 | grep -v 'does not exist, skipping' || true
-run -q -f supabase/seed/questions.sql >/dev/null
+# Each suite gets its own database, freshly migrated. They seed overlapping
+# fixture uuids, so sharing one would make the second suite fail on a duplicate
+# key rather than on anything real — and a test that can only pass when run
+# first isn't a test.
+FAILED=0
 
 echo "→ running assertions"
 echo
-if run -f supabase/tests/phase1_flow.sql 2>&1 \
-  | grep -E 'NOTICE:  ok|ERROR|FAILED|ALL SQL' \
-  | sed -E 's/^psql:[^ ]+ //; s/NOTICE:  //'; then
+
+for suite in supabase/tests/phase1_flow.sql supabase/tests/phase3_tender.sql; do
+  db="t_$(basename "$suite" .sql)"
+
+  admin -c "drop database if exists $db" -c "create database $db" >/dev/null
+
+  run() {
+    psql -h 127.0.0.1 -p "$PORT" -U postgres -d "$db" -v ON_ERROR_STOP=1 "$@"
+  }
+
+  run -q -f supabase/tests/_supabase_stubs.sql >/dev/null
+  run -q -f supabase/migrations/0001_phase1_loop.sql   2>&1 | grep -v 'does not exist, skipping' || true
+  run -q -f supabase/migrations/0002_phase3_tender.sql 2>&1 | grep -v 'does not exist, skipping' || true
+  run -q -f supabase/seed/questions.sql >/dev/null
+
+  echo "  ── $(basename "$suite")"
+  output=$(run -f "$suite" 2>&1)
+  echo "$output" \
+    | grep -E 'NOTICE:  ok|NOTICE:  \(|ERROR|FAILED|ALL ' \
+    | sed -E 's/^psql:[^ ]+ //; s/NOTICE:  //; s/^/  /'
+  echo "$output" | grep -qE 'ERROR|FAILED' && FAILED=1
   echo
-else
+done
+
+if [ "$FAILED" -ne 0 ]; then
   echo "SQL tests failed" >&2
   exit 1
 fi

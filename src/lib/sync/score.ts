@@ -32,11 +32,30 @@ import type { AnswerPayload, FacetValue, Question } from '@/lib/questions/types'
 export const SCALE_MIN = 0
 export const SCALE_MAX = 100
 
-/** Score one facet: how close a guess came to the truth. 0-100, unrounded. */
+/** Score awarded when both partners take the same honest non-answer. */
+export const NEUTRAL_MATCH = 50
+
+/**
+ * Score one facet: how close a guess came to the truth. 0-100, unrounded.
+ *
+ * `neutralIds` are the option ids on this facet that mean "nothing much" — "I
+ * truly don't mind", "Nothing, it's always the same". Matching on one of those
+ * scores {@link NEUTRAL_MATCH} rather than full marks.
+ *
+ * That discount is the point. Those options have to exist, because making
+ * somebody invent a feeling they don't have is worse than letting them pass. But
+ * if a mutual shrug scored 100, the highest-scoring day the app can produce
+ * would be the one where neither person said anything — and once accuracy pays
+ * tender, that is an economy that pays best for revealing least.
+ *
+ * Guessing the shrug correctly is still worth something, so it isn't zero. It
+ * just isn't worth as much as knowing an actual answer.
+ */
 export function scoreFacet(
   kind: 'choice' | 'scale',
   truth: FacetValue | undefined,
   guess: FacetValue | undefined,
+  neutralIds?: readonly string[],
 ): number {
   // A facet somebody skipped scores zero rather than throwing. Submission
   // validation already rejects incomplete payloads; this is so a single bad
@@ -44,7 +63,9 @@ export function scoreFacet(
   if (truth === undefined || guess === undefined) return 0
 
   if (kind === 'choice') {
-    return truth === guess ? 100 : 0
+    if (truth !== guess) return 0
+    if (neutralIds?.includes(String(truth))) return NEUTRAL_MATCH
+    return 100
   }
 
   const t = clampScale(Number(truth))
@@ -65,6 +86,8 @@ export interface FacetScore {
   score: number
   truth: FacetValue | undefined
   guess: FacetValue | undefined
+  /** True when both took the same honest non-answer. The reveal says so. */
+  neutralMatch?: boolean
 }
 
 export interface DirectionScore {
@@ -83,13 +106,23 @@ export function scoreDirection(
   truth: AnswerPayload,
   guess: AnswerPayload,
 ): DirectionScore {
-  const facets: FacetScore[] = question.facets.map((facet) => ({
-    facetId: facet.id,
-    kind: facet.kind,
-    score: scoreFacet(facet.kind, truth[facet.id], guess[facet.id]),
-    truth: truth[facet.id],
-    guess: guess[facet.id],
-  }))
+  const facets: FacetScore[] = question.facets.map((facet) => {
+    const neutralIds =
+      facet.kind === 'choice'
+        ? facet.options.filter((o) => o.neutral).map((o) => o.id)
+        : undefined
+
+    const score = scoreFacet(facet.kind, truth[facet.id], guess[facet.id], neutralIds)
+
+    return {
+      facetId: facet.id,
+      kind: facet.kind,
+      score,
+      truth: truth[facet.id],
+      guess: guess[facet.id],
+      neutralMatch: score === NEUTRAL_MATCH && Boolean(neutralIds?.length),
+    }
+  })
 
   const mean = facets.length
     ? facets.reduce((sum, f) => sum + f.score, 0) / facets.length

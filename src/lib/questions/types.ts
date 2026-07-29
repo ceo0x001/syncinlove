@@ -17,13 +17,41 @@
  * means nobody can talk the scorer into a perfect mark.
  */
 
-export type Category = 'light' | 'logistics' | 'deep'
+/**
+ * Six axes.
+ *
+ * `friction` and `desire` arrive late in the rotation on purpose — see SEQUENCE
+ * in bank.ts. Nobody's third day should be "what do I do that grates on you",
+ * and app-authored questions about wanting need the ritual to have earned it
+ * first.
+ */
+export type Category =
+  | 'light'
+  | 'logistics'
+  | 'deep'
+  | 'friction'
+  | 'desire'
+  | 'future'
 
 export interface ChoiceOption {
   /** Stable within the question. Answers store this, never the label, so a
    *  typo fix later doesn't silently rewrite somebody's history. */
   id: string
   label: string
+  /**
+   * An honest way to say "nothing much" — "I truly don't mind", "Nothing, it's
+   * always the same".
+   *
+   * These have to exist, because forcing somebody to invent a feeling they don't
+   * have is worse than letting them pass. But they can't be free: if both
+   * partners take the out they'd match exactly and score full marks for having
+   * revealed nothing, which is simultaneously the highest-scoring and least
+   * valuable thing the app can produce. Once accuracy pays tender, that would be
+   * an economy that rewards shrugging.
+   *
+   * So a mutual neutral match scores partially. See scoreFacet.
+   */
+  neutral?: boolean
 }
 
 export interface ChoiceFacet {
@@ -56,6 +84,23 @@ export interface Question {
   /** The headline, set in the display serif. The frame; facets are the answer. */
   prompt: string
   facets: Facet[]
+  /**
+   * Whether this question is worth asking twice.
+   *
+   * State questions renew — how you slept, how full the week is, where money
+   * sits. Ask them in a year and the answer has moved.
+   *
+   * Trait questions don't. Your chronotype, what helps when you're upset, the
+   * hardest thing to ask for: one enduring answer. Once it's been asked, both
+   * partners have *seen each other's answer at the reveal*, so asking again
+   * scores full marks from memory. Scores would climb across the second pass for
+   * no reason connected to the couple, and once accuracy pays out, tender would
+   * inflate with them.
+   *
+   * So the rotation only recycles renewable questions. Trait questions are asked
+   * once, and the fix for running dry is more questions, not repeats.
+   */
+  renewable: boolean
 }
 
 /**

@@ -248,3 +248,118 @@ function friendlyAuthError(message?: string): string {
   }
   return message || 'Something went wrong. Try again?'
 }
+
+/* ---------------------------------------------------------------------------
+   Phase 3 — tender
+   --------------------------------------------------------------------------- */
+
+/** Write or reprice one of your own menu items. Never your partner's. */
+export async function saveMenuItem(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const rawId = formData.get('itemId')
+  const itemId = typeof rawId === 'string' && rawId.length > 0 ? rawId : null
+  const title = String(formData.get('title') ?? '').trim().replace(/\s+/g, ' ')
+  const price = Number(formData.get('price'))
+
+  if (title.length < 2) return { error: 'Give it a name.' }
+  if (title.length > 90) return { error: 'A little shorter?' }
+  if (!Number.isInteger(price) || price < 1 || price > 600) {
+    return { error: 'Price it between T1 and T600.' }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Your session expired. Reload and try again.' }
+
+  const { error } = await supabase.rpc('upsert_menu_item', {
+    p_item_id: itemId,
+    p_title: title,
+    p_price: price,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/menu')
+  revalidatePath('/')
+  return { ok: true }
+}
+
+/** Unlist or relist. Available even mid-purchase — consent is withdrawable. */
+export async function setMenuItemActive(
+  itemId: string,
+  active: boolean,
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('set_menu_item_active', {
+    p_item_id: itemId,
+    p_active: active,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/menu')
+  revalidatePath('/')
+  return { ok: true }
+}
+
+/** Ask for something from their menu. Debits immediately; refundable in full. */
+export async function buyMenuItem(itemId: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Your session expired. Reload and try again.' }
+
+  const { error } = await supabase.rpc('buy_menu_item', { p_item_id: itemId })
+  if (error) return { error: error.message }
+
+  revalidatePath('/menu')
+  revalidatePath('/')
+  return { ok: true }
+}
+
+/** The buyer confirms it happened. Only ever the buyer. */
+export async function markFulfilled(purchaseId: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('mark_purchase_fulfilled', {
+    p_purchase_id: purchaseId,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/menu')
+  revalidatePath('/')
+  return { ok: true }
+}
+
+/**
+ * Say no, and the tender goes straight back.
+ *
+ * No reason field, deliberately. Requiring one turns declining into a
+ * justification, and the whole point is that "you already paid" must never
+ * oblige anybody to do anything.
+ */
+export async function declinePurchase(purchaseId: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('decline_purchase', {
+    p_purchase_id: purchaseId,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/menu')
+  revalidatePath('/')
+  return { ok: true }
+}
+
+/**
+ * Pays the completion floor for days answered alone whose window has closed.
+ *
+ * Called on page load rather than by a scheduler: there is no cron in this app,
+ * and a person opening it is the only signal needed. Idempotent, so calling it
+ * on every render is harmless.
+ */
+export async function settleOpenDays(): Promise<void> {
+  const supabase = await createClient()
+  await supabase.rpc('settle_open_days')
+}

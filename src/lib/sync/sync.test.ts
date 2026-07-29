@@ -8,7 +8,7 @@ import {
 } from '@/lib/questions/bank'
 import { validatePayload } from '@/lib/questions/validate'
 import type { Question } from '@/lib/questions/types'
-import { scoreDirection, scoreFacet, scoreSync } from './score'
+import { NEUTRAL_MATCH, scoreDirection, scoreFacet, scoreSync } from './score'
 import {
   addDays,
   currentDayIndex,
@@ -34,6 +34,7 @@ function lcg(seed: number) {
 const FIXTURE: Question = {
   id: 'q-fixture',
   category: 'light',
+  renewable: true,
   prompt: 'Fixture',
   facets: [
     {
@@ -86,6 +87,23 @@ describe('scoreFacet', () => {
   it('scores a skipped facet zero rather than throwing', () => {
     expect(scoreFacet('choice', undefined, 'a')).toBe(0)
     expect(scoreFacet('scale', 50, undefined)).toBe(0)
+  })
+
+  // Without this, the best-scoring day the app can produce is the one where
+  // neither person said anything — and once accuracy pays tender, that is an
+  // economy that pays most for revealing least.
+  it('half-scores a mutual non-answer instead of paying full marks', () => {
+    expect(scoreFacet('choice', 'nothing', 'nothing', ['nothing'])).toBe(NEUTRAL_MATCH)
+    expect(scoreFacet('choice', 'nothing', 'nothing', ['nothing'])).toBeLessThan(100)
+  })
+
+  it('still scores a real matched answer in full', () => {
+    expect(scoreFacet('choice', 'a', 'a', ['nothing'])).toBe(100)
+  })
+
+  it('scores a missed guess at zero whether or not a neutral exists', () => {
+    expect(scoreFacet('choice', 'nothing', 'a', ['nothing'])).toBe(0)
+    expect(scoreFacet('choice', 'a', 'nothing', ['nothing'])).toBe(0)
   })
 })
 
@@ -249,10 +267,10 @@ describe('agreement with the database scoring function', () => {
 })
 
 describe('question bank integrity', () => {
-  it('has 30 questions and a sequence that covers every one exactly once', () => {
-    expect(QUESTIONS).toHaveLength(30)
-    expect(SEQUENCE).toHaveLength(30)
-    expect(new Set(SEQUENCE).size).toBe(30)
+  it('has 60 questions and a sequence that covers every one exactly once', () => {
+    expect(QUESTIONS).toHaveLength(60)
+    expect(SEQUENCE).toHaveLength(60)
+    expect(new Set(SEQUENCE).size).toBe(60)
     expect([...SEQUENCE].sort()).toEqual(QUESTIONS.map((q) => q.id).sort())
   })
 
@@ -295,11 +313,33 @@ describe('question bank integrity', () => {
     }
   })
 
-  it('keeps the first week light — no deep questions before day 3', () => {
+  it('keeps the first week light — nothing heavy before day 7', () => {
     // A pair whose second question is "what do you suspect I don't know about
     // you" does not come back for a third.
-    for (let day = 0; day < 3; day++) {
-      expect(questionForDay(day).category, `day ${day}`).not.toBe('deep')
+    for (let day = 0; day < 6; day++) {
+      expect(['light', 'logistics'], `day ${day + 1}`).toContain(
+        questionForDay(day).category,
+      )
+    }
+  })
+
+  // Friction is an accusation risk and desire presumes a lot. Both have to be
+  // earned by the ritual actually being kept.
+  it('holds friction back past week two and desire past a month', () => {
+    for (let day = 0; day < 14; day++) {
+      expect(questionForDay(day).category, `day ${day + 1}`).not.toBe('friction')
+    }
+    for (let day = 0; day < 28; day++) {
+      expect(questionForDay(day).category, `day ${day + 1}`).not.toBe('desire')
+    }
+  })
+
+  it('never runs the same axis on consecutive days', () => {
+    for (let day = 1; day < SEQUENCE.length; day++) {
+      expect(
+        questionForDay(day).category,
+        `days ${day} and ${day + 1} share an axis`,
+      ).not.toBe(questionForDay(day - 1).category)
     }
   })
 
@@ -307,10 +347,30 @@ describe('question bank integrity', () => {
     expect(questionForDay(0).id).toBe(SEQUENCE[0])
   })
 
-  it('is a pure function of the day index, and wraps', () => {
+  it('is a pure function of the day index', () => {
     expect(questionForDay(5).id).toBe(questionForDay(5).id)
-    expect(questionForDay(0).id).toBe(questionForDay(30).id)
-    expect(questionForDay(31).id).toBe(questionForDay(1).id)
+    expect(questionForDay(41).id).toBe(questionForDay(41).id)
+  })
+
+  it('walks the sequence in order for the whole first pass', () => {
+    for (let day = 0; day < SEQUENCE.length; day++) {
+      expect(questionForDay(day).id, `day ${day}`).toBe(SEQUENCE[day])
+    }
+  })
+
+  // Recycling a trait question pays full marks for remembering an answer both
+  // partners already saw at the reveal, which inflates scores — and, once tender
+  // pays on accuracy, the economy — from the second pass onward.
+  it('only ever recycles renewable questions', () => {
+    for (let day = SEQUENCE.length; day < SEQUENCE.length + 120; day++) {
+      const q = questionForDay(day)
+      expect(q.renewable, `day ${day} served non-renewable ${q.id}`).toBe(true)
+    }
+  })
+
+  it('has enough renewable questions that repeats are not back-to-back', () => {
+    const renewables = QUESTIONS.filter((q) => q.renewable)
+    expect(renewables.length).toBeGreaterThanOrEqual(14)
   })
 
   it('survives a negative day index rather than crashing', () => {
