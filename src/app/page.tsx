@@ -24,16 +24,6 @@ export default async function Home() {
 
   const home = await loadHome()
 
-  // TEMPORARY: the signup action finishes with a valid session, then this render
-  // shows the signup form again. Pin down which of the three reasons it is.
-  console.warn('[home] render decision:', {
-    hasHome: Boolean(home),
-    userId: home?.me.id ?? null,
-    firstName: home?.me.firstName ?? null,
-    hasPair: Boolean(home?.pair),
-    renders: !home || !home.me.firstName ? 'Welcome' : !home.pair ? 'NoPair' : 'Hub',
-  })
-
   if (!home || !home.me.firstName) return <Welcome />
   if (!home.pair) return <NoPair />
 

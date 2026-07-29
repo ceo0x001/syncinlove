@@ -145,11 +145,24 @@ export async function getMe(): Promise<Me | null> {
 
   if (!user) return null
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('first_name, list_display, list_alias')
     .eq('id', user.id)
     .maybeSingle()
+
+  // A failed read here used to coalesce straight to firstName: null, which the
+  // home page reads as "no account yet" and answers with the signup form. That
+  // is indistinguishable from a genuine new visitor, so a schema mistake —
+  // selecting a column a migration hadn't added yet — silently bounced every
+  // signup back to the form with no error anywhere. Say it out loud instead.
+  if (error) {
+    console.error('[getMe] could not read the profile:', {
+      userId: user.id,
+      code: error.code,
+      message: error.message,
+    })
+  }
 
   return {
     id: user.id,
