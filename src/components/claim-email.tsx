@@ -24,10 +24,28 @@ import { Button, Notice, TextField } from './ui'
 /** Survives a reload; cleared on success. Session-scoped, never persisted. */
 const PENDING_KEY = 'sync.pendingClaimEmail'
 
-export function ClaimEmail({
+/**
+ * "Use a different address" has to remount rather than flip a flag.
+ *
+ * useActionState holds its result until unmount, so once a send succeeded the code
+ * step could never be left and the button did nothing. Changing the key resets it.
+ */
+export function ClaimEmail(props: {
+  reason: string
+  onDone?: () => void
+  pendingEmail?: string | null
+}) {
+  const [attempt, setAttempt] = useState(0)
+  return (
+    <ClaimAttempt key={attempt} {...props} onRestart={() => setAttempt((n) => n + 1)} />
+  )
+}
+
+function ClaimAttempt({
   reason,
   onDone,
   pendingEmail,
+  onRestart,
 }: {
   reason: string
   onDone?: () => void
@@ -37,6 +55,7 @@ export function ClaimEmail({
    * asking for something already given.
    */
   pendingEmail?: string | null
+  onRestart: () => void
 }) {
   const [email, setEmail] = useState(pendingEmail ?? '')
   const [restored, setRestored] = useState(false)
@@ -81,8 +100,7 @@ export function ClaimEmail({
 
   function startOver() {
     sessionStorage.removeItem(PENDING_KEY)
-    setRestored(false)
-    setEmail('')
+    onRestart()
   }
 
   if (done) {

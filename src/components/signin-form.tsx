@@ -19,7 +19,19 @@ import { Button, Notice, TextField } from './ui'
 
 const PENDING_KEY = 'sync.pendingSignInEmail'
 
+/**
+ * "Use a different address" has to remount rather than flip a flag.
+ *
+ * useActionState keeps its result until the component unmounts, so once a send
+ * succeeded the code step could never be left — the button was dead. Changing the
+ * key resets the action state along with everything else.
+ */
 export function SignInForm() {
+  const [attempt, setAttempt] = useState(0)
+  return <SignInAttempt key={attempt} onRestart={() => setAttempt((n) => n + 1)} />
+}
+
+function SignInAttempt({ onRestart }: { onRestart: () => void }) {
   const [email, setEmail] = useState('')
   const [restored, setRestored] = useState(false)
   const [sendState, sendAction, sending] = useActionState(sendSignInCode, null)
@@ -45,8 +57,7 @@ export function SignInForm() {
 
   function startOver() {
     sessionStorage.removeItem(PENDING_KEY)
-    setRestored(false)
-    setEmail('')
+    onRestart()
   }
 
   if (!sent) {
