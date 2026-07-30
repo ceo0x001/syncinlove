@@ -7,6 +7,7 @@ import {
   BurnForm,
   EndPairingForm,
   ExportButton,
+  RevokeClaimForm,
   NotifyForm,
   ProfileForm,
   SignOutForm,
@@ -118,6 +119,16 @@ export default async function SettingsPage() {
           </div>
 
           {partner ? <EndPairingForm partnerFirstName={them} /> : null}
+
+          {/*
+            Only while it would actually do something: the person who sent the link,
+            inside 24 hours of it being claimed. Showing it otherwise puts a
+            destructive-sounding option in front of somebody it would only ever
+            refuse — revoke_claim raises P0009 or P0011 in every other case.
+          */}
+          {partner && home.invite?.canRevoke ? (
+            <RevokeClaimForm partnerFirstName={them} />
+          ) : null}
 
           <BurnForm canBurn={!me.isAnonymous} />
         </section>

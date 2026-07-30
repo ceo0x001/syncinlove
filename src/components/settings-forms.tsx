@@ -5,10 +5,12 @@ import {
   burnEverything,
   endPairing,
   exportArchive,
+  revokeClaim,
   signOutSession,
   updateNotifyPrefs,
   updateProfile,
 } from '@/app/actions'
+import { haptic } from '@/lib/haptics'
 import type { Me } from '@/lib/session'
 import { Button, Notice, TextField } from './ui'
 
@@ -293,6 +295,137 @@ export function ExportButton() {
  * after a split is a cruel thing to have built, so the kind option must be the
  * default rather than the one you have to find.
  */
+/**
+ * Undoing a wrong claim.
+ *
+ * The narrow case this exists for: you sent a link, the wrong person opened it, and
+ * you want them out along with anything they submitted. Within 24 hours of their
+ * claim, and only for the person who sent the link.
+ *
+ * It lived on the dashboard as a single unconfirmed button, which is how a real
+ * couple lost their history — `canRevoke` is only "within 24 hours", so it sat there
+ * during the ordinary first day of every healthy pairing.
+ *
+ * Two things it now does that it did not before. It asks. And it says what it takes,
+ * item by item, rather than "you can undo it" — because the destruction is much
+ * wider than the word undo suggests: every reveal for the pairing, both partners'
+ * entire tender balance, every purchase, and the joiner's answers and menu. All hard
+ * deletes, no backup, nothing to reconstruct from.
+ *
+ * Deliberately worded to send the common case away. Anybody reaching Settings for
+ * this is far more likely to have the right partner and a wrong impression of the
+ * button than to have an impostor in their pairing.
+ */
+export function RevokeClaimForm({ partnerFirstName }: { partnerFirstName: string }) {
+  const [stage, setStage] = useState<'closed' | 'open' | 'sure'>('closed')
+  const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  if (stage === 'closed') {
+    return (
+      <button
+        type="button"
+        onClick={() => setStage('open')}
+        className="t-small text-ink-faint underline decoration-hairline underline-offset-4 hover:text-ink-muted"
+      >
+        Somebody else used my invite link
+      </button>
+    )
+  }
+
+  return (
+    <div
+      className="stack rounded-[0.875rem] border border-hairline bg-paper-raised p-5"
+      style={{ ['--stack-gap' as string]: '1.25rem' }}
+    >
+      <div>
+        <p className="t-title text-ink">Remove {partnerFirstName} from this pairing?</p>
+        <p className="t-small mt-1 text-ink-muted">
+          Only do this if {partnerFirstName} is <em>not</em> the person you meant to
+          invite. If they are your partner, close this — what you want is somewhere
+          else, or nowhere.
+        </p>
+      </div>
+
+      <div className="rounded-[0.625rem] border border-accent/35 bg-accent-wash p-4">
+        <p className="t-label mb-2 text-ink">This deletes, permanently</p>
+        <ul className="stack" style={{ ['--stack-gap' as string]: '0.375rem' }}>
+          {[
+            'Every reveal you two have had — so the whole history, and the streak',
+            'Everything ' + partnerFirstName + ' has answered',
+            'All tender, for both of you, and every request either of you made',
+            partnerFirstName + '’s menu',
+          ].map((line) => (
+            <li key={line} className="t-small flex gap-2 text-ink-muted">
+              <span aria-hidden className="mt-[0.55em] size-1.5 shrink-0 rounded-full bg-accent" />
+              <span>{line}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="t-small mt-3 text-ink">
+          There is no undo and no backup. Your own answers, your own menu and your
+          sealed letters stay.
+        </p>
+      </div>
+
+      {error ? <Notice tone="error">{error}</Notice> : null}
+
+      {stage === 'open' ? (
+        <div className="flex flex-wrap gap-4">
+          <button
+            type="button"
+            onClick={() => setStage('sure')}
+            className="t-small font-medium text-accent underline decoration-transparent underline-offset-4 hover:decoration-current"
+          >
+            I understand — continue
+          </button>
+          <button
+            type="button"
+            onClick={() => setStage('closed')}
+            className="t-small text-ink-muted underline decoration-hairline underline-offset-4 hover:text-ink"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <div className="stack" style={{ ['--stack-gap' as string]: '0.75rem' }}>
+          <p className="t-small text-ink">
+            Last check. Removing {partnerFirstName} destroys the list above and cannot
+            be reversed.
+          </p>
+          <div className="flex flex-wrap gap-4">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                startTransition(async () => {
+                  const result = await revokeClaim()
+                  if (result?.error) {
+                    setError(result.error)
+                    haptic('error')
+                    return
+                  }
+                  haptic('commit')
+                })
+              }
+              className="t-small font-medium text-accent underline decoration-transparent underline-offset-4 hover:decoration-current disabled:opacity-40"
+            >
+              {pending ? 'Removing…' : `Yes, remove ${partnerFirstName} and delete it all`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setStage('closed')}
+              className="t-small text-ink-muted underline decoration-hairline underline-offset-4 hover:text-ink"
+            >
+              Keep everything
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function EndPairingForm({ partnerFirstName }: { partnerFirstName: string }) {
   const [stage, setStage] = useState<'closed' | 'open'>('closed')
   const [letters, setLetters] = useState<'burn' | 'keep'>('burn')

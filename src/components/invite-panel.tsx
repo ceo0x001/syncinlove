@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { reissueInvite, revokeClaim } from '@/app/actions'
+import { reissueInvite } from '@/app/actions'
 import { Button, Notice } from './ui'
 
 /**
@@ -16,14 +16,12 @@ export function InvitePanel({
   partnerFirstName,
   claimed,
   expired,
-  canRevoke,
   declined = false,
 }: {
   url: string
   partnerFirstName: string | null
   claimed: boolean
   expired: boolean
-  canRevoke: boolean
   /**
    * They chose to say they can't join.
    *
@@ -94,32 +92,29 @@ export function InvitePanel({
     )
   }
 
+  /**
+   * Somebody joined.
+   *
+   * This used to carry the undo button, and that was a genuine design failure that
+   * cost a real couple their history. `canRevoke` means nothing more than "within
+   * 24 hours of the claim", so for the entire first day of every HEALTHY pairing
+   * there was a one-click, unconfirmed nuke sitting on the main screen — one that
+   * hard-deletes every reveal, both partners' tender, and the joiner's answers.
+   *
+   * It never distinguished "the wrong person used my link" from "my actual partner
+   * just joined", because the database cannot tell those apart. Only the person
+   * looking at it can, and asking them costs one tap.
+   *
+   * So the action moved to Settings, behind the same two-step confirmation that
+   * ending a pairing and burning an account already use. This panel keeps only the
+   * part that was worth saying.
+   */
   if (claimed) {
     return (
-      <div className="stack" style={{ ['--stack-gap' as string]: '0.75rem' }}>
-        <Notice>
-          {partnerFirstName ? `${partnerFirstName} is in.` : 'Somebody has joined.'} If that
-          isn’t who you meant, you can undo it{canRevoke ? '' : ' — though that window has closed'}.
-        </Notice>
-
-        {canRevoke ? (
-          <>
-            <Button
-              variant="ghost"
-              disabled={pending}
-              onClick={() =>
-                startTransition(async () => {
-                  const result = await revokeClaim()
-                  if (result?.error) setError(result.error)
-                })
-              }
-            >
-              {pending ? 'Undoing…' : 'That’s not who I meant — undo'}
-            </Button>
-            {error ? <Notice tone="error">{error}</Notice> : null}
-          </>
-        ) : null}
-      </div>
+      <Notice>
+        {partnerFirstName ? `${partnerFirstName} is in.` : 'Somebody has joined.'} If
+        that isn&rsquo;t who you meant, Settings can undo it within a day.
+      </Notice>
     )
   }
 
