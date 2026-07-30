@@ -155,8 +155,9 @@ function Hub({ home }: { home: HomeState }) {
                 <span className="tabular">{tender(economy.mine.balance)}</span>
               </NavLink>
             ) : null}
+            {partner ? <NavLink href="/history">History</NavLink> : null}
             {partner ? <NavLink href="/rich-list">List</NavLink> : null}
-            <NavLink href="/settings">You</NavLink>
+            <NavLink href="/settings">Settings</NavLink>
           </span>
         </header>
 
@@ -216,6 +217,7 @@ function Hub({ home }: { home: HomeState }) {
                 url={invite.url}
                 partnerFirstName={null}
                 claimed={invite.claimed}
+                expired={invite.expired}
                 canRevoke={invite.canRevoke}
               />
             </div>
@@ -227,6 +229,7 @@ function Hub({ home }: { home: HomeState }) {
             url={invite.url}
             partnerFirstName={partner.firstName}
             claimed
+            expired={false}
             canRevoke
           />
         ) : null}

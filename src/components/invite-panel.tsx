@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { revokeClaim } from '@/app/actions'
+import { reissueInvite, revokeClaim } from '@/app/actions'
 import { Button, Notice } from './ui'
 
 /**
@@ -15,11 +15,13 @@ export function InvitePanel({
   url,
   partnerFirstName,
   claimed,
+  expired,
   canRevoke,
 }: {
   url: string
   partnerFirstName: string | null
   claimed: boolean
+  expired: boolean
   canRevoke: boolean
 }) {
   const [copied, setCopied] = useState(false)
@@ -82,6 +84,38 @@ export function InvitePanel({
     )
   }
 
+  /**
+   * An expired link is shown as expired rather than shown as a link.
+   *
+   * The old screen displayed a dead URL identically to a live one, with Send and
+   * Copy still inviting you to pass it on. Somebody could send a link that could
+   * not possibly work and hear nothing back.
+   */
+  if (expired) {
+    return (
+      <div className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
+        <Notice tone="error">
+          This link has expired — they had seven days and nobody joined. Make a
+          fresh one and it&rsquo;ll work for another seven.
+        </Notice>
+
+        <Button
+          disabled={pending}
+          onClick={() =>
+            startTransition(async () => {
+              const result = await reissueInvite()
+              if (result?.error) setError(result.error)
+            })
+          }
+        >
+          {pending ? 'Making a new link…' : 'Make a new link'}
+        </Button>
+
+        {error ? <Notice tone="error">{error}</Notice> : null}
+      </div>
+    )
+  }
+
   return (
     <div className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
       <div className="rounded-[0.75rem] border border-hairline bg-paper-sunken px-4 py-3.5">
@@ -104,6 +138,22 @@ export function InvitePanel({
         They can start answering straight away — no account, no password. The link
         works once and expires in seven days.
       </p>
+
+      {/* Available before expiry too: a link lost in a chat thread, or sent to
+          the wrong person, is the same problem a week early. */}
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          startTransition(async () => {
+            const result = await reissueInvite()
+            if (result?.error) setError(result.error)
+          })
+        }
+        className="press t-small self-start text-ink-muted underline decoration-hairline-strong underline-offset-4 hover:text-ink"
+      >
+        {pending ? 'Making a new link…' : 'Replace this link with a new one'}
+      </button>
     </div>
   )
 }

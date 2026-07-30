@@ -20,10 +20,31 @@ import { Button, Notice, TextField } from './ui'
  * should not be able to walk through it by mistake.
  */
 
+/** Matches the database constraint. Changing one means changing both. */
+const ALIAS_MAX = 24
+
 export function ProfileForm({ me }: { me: Me }) {
   const [state, formAction, pending] = useActionState(updateProfile, null)
   const [display, setDisplay] = useState(me.listDisplay)
   const [optIn, setOptIn] = useState(me.listOptIn)
+  const [alias, setAlias] = useState(me.listAlias ?? '')
+
+  /**
+   * Mirrors the two rules the database enforces, so the answer arrives while
+   * they're typing rather than after a round trip.
+   *
+   * The letter rule exists because this is the only text this app shows to
+   * strangers, and a leaderboard displaying somebody's phone number is not a
+   * thing to leave to chance. It stops digits-only, not digits.
+   */
+  const aliasProblem =
+    display !== 'alias'
+      ? null
+      : alias.trim().length > ALIAS_MAX
+        ? `That's ${alias.trim().length} characters — ${ALIAS_MAX} is the most that fits.`
+        : alias.trim().length > 0 && !/[a-z]/i.test(alias)
+          ? 'Give it at least one letter — numbers on their own aren’t a name.'
+          : null
 
   const initial = (me.firstName ?? '?').trim().charAt(0).toUpperCase()
 
@@ -103,13 +124,24 @@ export function ProfileForm({ me }: { me: Me }) {
 
         {display === 'alias' ? (
           <div className="mt-3">
+            {/* No maxLength. Capping the field silently swallowed the 25th
+                keystroke, so a long alias just stopped typing with no
+                explanation — the field looked broken rather than full. It now
+                accepts the overrun and says what the limit is. */}
             <TextField
               label="Shown instead"
               name="listAlias"
-              defaultValue={me.listAlias ?? ''}
-              maxLength={24}
+              value={alias}
+              onChange={(event) => setAlias(event.target.value)}
               placeholder="hot sauce"
+              hint={
+                aliasProblem ??
+                `${alias.trim().length}/${ALIAS_MAX} characters. Shown publicly, so pick something you'd say out loud.`
+              }
             />
+            {aliasProblem ? (
+              <p className="t-small mt-2 text-[var(--error)]">{aliasProblem}</p>
+            ) : null}
           </div>
         ) : (
           <input type="hidden" name="listAlias" value={me.listAlias ?? ''} />
@@ -119,7 +151,7 @@ export function ProfileForm({ me }: { me: Me }) {
       {state?.error ? <Notice tone="error">{state.error}</Notice> : null}
       {state?.ok ? <Notice>Saved.</Notice> : null}
 
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending || Boolean(aliasProblem)}>
         {pending ? 'Saving…' : 'Save'}
       </Button>
     </form>

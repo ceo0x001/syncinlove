@@ -3,7 +3,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { questionForDay } from '@/lib/questions/bank'
 import type { Question } from '@/lib/questions/types'
-import { currentDayIndex, openDayIndexes, secondsUntilRollover, streakFrom } from '@/lib/sync/day'
+import { addDays, currentDayIndex, openDayIndexes, secondsUntilRollover, streakFrom } from '@/lib/sync/day'
 import { inviteUrl, tokenFromNonce } from '@/lib/invite/token'
 import { siteUrl } from '@/lib/supabase/env'
 
@@ -52,6 +52,14 @@ export interface InviteInfo {
   claimed: boolean
   claimedAt: string | null
   expiresAt: string
+  /**
+   * Past its seven days and no longer claimable.
+   *
+   * Worth a field of its own rather than a date comparison at each call site:
+   * an expired link that still looks live is how an inviter sends something that
+   * silently cannot work.
+   */
+  expired: boolean
   /** Whether the inviter is still inside the 24-hour undo window. */
   canRevoke: boolean
 }
@@ -291,6 +299,8 @@ export async function loadHome(): Promise<HomeState | null> {
       claimed: Boolean(claimedAt),
       claimedAt,
       expiresAt: inviteRes.data.expires_at,
+      expired:
+        !claimedAt && new Date(inviteRes.data.expires_at as string).getTime() <= Date.now(),
       canRevoke:
         Boolean(claimedAt) && Date.now() - new Date(claimedAt as string).getTime() < 24 * 3_600_000,
     }
@@ -441,6 +451,90 @@ async function loadEconomy(
     // once there's tender sitting unspent it's an itch.
     shouldPromptMenu: activeOwn === 0 && mine.balance > 0,
   }
+}
+
+export interface HistoryEntry {
+  dayIndex: number
+  syncScore: number
+  prompt: string
+  category: string
+  /** Pair-local date this day belonged to, already formatted. */
+  date: string
+  revealedAt: string
+}
+
+export interface History {
+  entries: HistoryEntry[]
+  /** Mean sync across everything, so the page can say whether it's improving. */
+  average: number
+  best: HistoryEntry | null
+  /** Days both people completed. Same number the vault counts. */
+  total: number
+}
+
+/**
+ * Everything you have already been shown, newest first.
+ *
+ * Reads only `reveals`, which is the one table holding both people's answers —
+ * and it holds them because the database assembled it at the moment both had
+ * submitted. So there is no privacy question here: a reveal is by definition
+ * something you have already seen.
+ *
+ * This existed as a JSON export and nothing else. The accumulated history is the
+ * reason to still be here in month two, and downloading a file is not a way to
+ * read it.
+ */
+export async function loadHistory(): Promise<History | null> {
+  const me = await getMe()
+  if (!me) return null
+
+  const supabase = await createClient()
+
+  const { data: pairRow } = await supabase
+    .from('pairs')
+    .select('id, time_zone, day_zero')
+    .neq('status', 'ended')
+    .limit(1)
+    .maybeSingle()
+
+  if (!pairRow) return null
+
+  const { data } = await supabase
+    .from('reveals')
+    .select('day_index, sync_score, revealed_at')
+    .eq('pair_id', pairRow.id)
+    .order('day_index', { ascending: false })
+
+  const rows = data ?? []
+
+  const entries: HistoryEntry[] = rows.map((row) => {
+    const question = questionForDay(row.day_index as number)
+    return {
+      dayIndex: row.day_index as number,
+      syncScore: row.sync_score as number,
+      prompt: question.prompt,
+      category: question.category,
+      date: addDays(pairRow.day_zero as string, row.day_index as number),
+      revealedAt: row.revealed_at as string,
+    }
+  })
+
+  const total = entries.length
+  const average =
+    total === 0
+      ? 0
+      : Math.round(entries.reduce((sum, e) => sum + e.syncScore, 0) / total)
+
+  // Ties go to the earlier day: the first time you hit a number is the one worth
+  // remembering.
+  const best = entries.reduce<HistoryEntry | null>((top, e) => {
+    if (!top) return e
+    if (e.syncScore > top.syncScore) return e
+    if (e.syncScore === top.syncScore && e.dayIndex < top.dayIndex) return e
+    return top
+  }, null)
+
+  return { entries, average, best, total }
 }
 
 export type RichListWindow = 'week' | 'all'

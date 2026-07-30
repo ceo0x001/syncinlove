@@ -264,6 +264,29 @@ export async function revokeClaim(): Promise<ActionResult> {
 }
 
 /**
+ * A fresh link for a pairing nobody joined.
+ *
+ * Invites last seven days and, until now, could only ever be minted once — at
+ * pair creation. A partner who took longer than a week left the inviter holding a
+ * dead link with nothing to press, which quietly killed the pairing.
+ */
+export async function reissueInvite(): Promise<ActionResult> {
+  const supabase = await createClient()
+
+  const invite = createInvite()
+  const { error } = await supabase.rpc('reissue_invite', {
+    p_token_hash: invite.tokenHash,
+    p_nonce: invite.nonce,
+    p_expires_at: invite.expiresAt.toISOString(),
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/')
+  return { ok: true }
+}
+
+/**
  * Supabase auth errors are written for developers. These are the ones a user is
  * actually likely to hit, so they get sentences instead.
  */
@@ -430,7 +453,15 @@ export async function updateProfile(
   if (rawDisplay === 'alias' && alias.length < 1) {
     return { error: 'Type the alias you want shown.' }
   }
-  if (alias.length > 24) return { error: 'That alias is a bit long.' }
+  if (alias.length > 24) {
+    return { error: `That's ${alias.length} characters — 24 is the most that fits.` }
+  }
+  // The alias is the only text this app shows to strangers, so a digits-only
+  // one — a phone number on a public leaderboard — is refused here and in the
+  // database. Digits within a name are fine.
+  if (alias.length > 0 && !/[a-z]/i.test(alias)) {
+    return { error: 'Give the alias at least one letter — numbers on their own aren’t a name.' }
+  }
 
   const supabase = await createClient()
   const { error } = await supabase.rpc('update_profile', {

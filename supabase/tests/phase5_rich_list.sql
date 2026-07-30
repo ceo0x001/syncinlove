@@ -219,4 +219,74 @@ select eq('update_profile has exactly one signature, so PostgREST can resolve it
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = 'update_profile'), 1);
 
+-- ----------------------------------------------------------------------------
+-- Reissuing an invite
+--
+-- The bug: invites were minted only inside create_pair, which returns early for
+-- anybody who already has a pair. A partner who took longer than seven days left
+-- the inviter permanently unable to produce another link.
+-- ----------------------------------------------------------------------------
+
+insert into auth.users (id, is_anonymous) values
+  ('f1000000-0000-0000-0000-0000000000f1', false),
+  ('f2000000-0000-0000-0000-0000000000f2', false);
+
+set sync.uid = 'f1000000-0000-0000-0000-0000000000f1';
+insert into public.profiles (id, first_name) values ('f1000000-0000-0000-0000-0000000000f1', 'Ann');
+select public.create_pair('UTC', 'inv-a', 'non-a', now() + interval '7 days');
+
+select eq('a new pairing starts with one live link',
+  (select count(*)::int from public.invites
+    where revoked_at is null and claimed_at is null), 1);
+
+select public.reissue_invite('inv-b', 'non-b', now() + interval '7 days');
+
+select eq('reissue revokes the previous link',
+  (select count(*)::int from public.invites where revoked_at is not null), 1);
+
+select eq('and leaves exactly one live',
+  (select count(*)::int from public.invites
+    where revoked_at is null and claimed_at is null), 1);
+
+-- A second member makes it a real couple.
+insert into public.profiles (id, first_name) values ('f2000000-0000-0000-0000-0000000000f2', 'Ben');
+insert into public.pair_members (pair_id, user_id, role)
+select id, 'f2000000-0000-0000-0000-0000000000f2', 'invitee'
+from public.pairs
+where id = public.current_pair_id();
+
+do $$ begin
+  perform public.reissue_invite('inv-c', 'non-c', now() + interval '7 days');
+  perform fail('reissue on a claimed pairing', 'it was allowed');
+exception when sqlstate '22023' then
+  perform pass('a complete pairing cannot mint another link');
+end $$;
+
+
+-- ----------------------------------------------------------------------------
+-- The public alias
+--
+-- The only free text this app shows to strangers, so a leaderboard must not be
+-- able to display somebody's phone number.
+-- ----------------------------------------------------------------------------
+
+do $$ begin
+  perform public.update_profile('Ann', 'alias', '08161234567');
+  perform fail('digits-only alias', 'it was accepted');
+exception when sqlstate '22023' then
+  perform pass('an alias of digits alone is refused');
+end $$;
+
+do $$ begin
+  perform public.update_profile('Ann', 'alias', 'this alias is far too long to fit');
+  perform fail('over-long alias', 'it was accepted');
+exception when sqlstate '22023' then
+  perform pass('an over-long alias is refused');
+end $$;
+
+select public.update_profile('Ann', 'alias', 'Agent 99');
+select eq('digits inside a real name are fine',
+  (select list_alias from public.profiles where id = 'f1000000-0000-0000-0000-0000000000f1'),
+  'Agent 99');
+
 rollback;
