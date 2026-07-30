@@ -26,7 +26,24 @@
 
   /* Primary Coral. Buttons, key CTAs, highlights. */
   --accent: #ff6b6b;
-  --accent-ink: #ffffff;
+  /*
+   * Text sitting ON the accent or the brand gradient.
+   *
+   * Was #ffffff, which failed WCAG AA on every primary button in the app. White
+   * measures 3.53:1 against the pink stop, 2.78:1 against coral and 2.35:1
+   * against amber — so the worst point of the gradient was 2.35:1 against a
+   * 4.5:1 requirement, on the single most-tapped element there is.
+   *
+   * Deep Midnight instead, which is already the palette's text colour. That
+   * takes the same gradient to 5.06:1 at its worst stop without touching the
+   * brand at all: the gradient was never the problem, the white on it was.
+   * Darkening the coral would have cost the brand its warmth to fix something
+   * the text colour fixes for free.
+   *
+   * Dark mode already passed — its --accent-ink is a near-black, worst stop
+   * 6.23:1 — which is why only this value changes.
+   */
+  --accent-ink: #0f172a;
   --accent-wash: #fff3f0;
 
   /* Secondary Pink. Gradients and accents. */
