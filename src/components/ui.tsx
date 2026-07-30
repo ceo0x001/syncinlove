@@ -247,11 +247,18 @@ export function Rule({ className = '' }: { className?: string }) {
 export function Screen({
   children,
   wide = false,
+  admin = false,
 }: {
   children: ReactNode
   wide?: boolean
+  /**
+   * The operator console, which is a different kind of screen from the app.
+   *
+   * Everything else is deliberately a phone column. This one is read at a desk
+   * and its main surface is a table, so it gets real width.
+   */
+  admin?: boolean
 }) {
-  return (
-    <main className={`shell ${wide ? 'shell-wide' : ''} flex-1 py-10`}>{children}</main>
-  )
+  const width = admin ? 'shell-admin' : wide ? 'shell-wide' : ''
+  return <main className={`shell ${width} flex-1 py-10`}>{children}</main>
 }

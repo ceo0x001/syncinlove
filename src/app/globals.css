@@ -218,6 +218,25 @@ body::before {
   max-width: 34rem;
 }
 
+/*
+ * The admin panel, which is not the app.
+ *
+ * Everything else here is a phone column on purpose — one question, one thumb.
+ * An operator console is the opposite job: it is read at a desk, on a monitor,
+ * and its main surface is a table of accounts that a 34rem column turns into a
+ * stack of wrapped fragments buried under a long scroll.
+ */
+.shell-admin {
+  max-width: 84rem;
+  padding-inline: 1.25rem;
+}
+
+@media (min-width: 48rem) {
+  .shell-admin {
+    padding-inline: 2rem;
+  }
+}
+
 /* Vertical rhythm helper: generous, and consistent between screens. */
 .stack > * + * {
   margin-top: var(--stack-gap, 1rem);

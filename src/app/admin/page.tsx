@@ -42,7 +42,7 @@ export default async function AdminPage({
   const { overview: o, retention, accounts, economy, nudges } = data
 
   return (
-    <Screen wide>
+    <Screen admin>
       <div className="stack stagger" style={{ ['--stack-gap' as string]: '2.5rem' }}>
         <header className="flex items-center justify-between gap-3">
           <span className="shrink-0">
@@ -60,105 +60,24 @@ export default async function AdminPage({
         </div>
 
         <section className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
-          <h2 className="t-label">People</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <h2 className="t-label">At a glance</h2>
+          {/* One row of eight rather than two rows of four: at 84rem, four tiles
+              are absurdly wide and leave half the row empty. */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
             <Stat label="Accounts" value={o.users} />
             <Stat label="Confirmed" value={o.usersConfirmed} />
             <Stat label="Couples" value={o.pairsComplete} />
             <Stat label="Waiting" value={o.pairsPending} />
+            <Stat label="Reveals today" value={o.revealsToday} />
+            <Stat label="Reveals, 7d" value={o.reveals7d} />
+            <Stat label="Signups, 7d" value={o.signups7d} />
+            <Stat label="Signups, 30d" value={o.signups30d} />
           </div>
           <p className="t-small text-ink-faint">
             {o.usersAnonymous} unconfirmed{' '}
             {o.usersAnonymous === 1 ? 'account' : 'accounts'} — those cannot be
             recovered if the browser is lost. {o.pairsEnded} pairing
             {o.pairsEnded === 1 ? '' : 's'} ended.
-          </p>
-        </section>
-
-        <Rule />
-
-        <section className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
-          <h2 className="t-label">Activity</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Reveals today" value={o.revealsToday} />
-            <Stat label="Reveals, 7d" value={o.reveals7d} />
-            <Stat label="Signups, 7d" value={o.signups7d} />
-            <Stat label="Signups, 30d" value={o.signups30d} />
-          </div>
-        </section>
-
-        <Rule />
-
-        {/*
-          The number that says whether the product works. A daily-ritual app lives
-          or dies on how many pairs are still here in week two, and everything
-          else on this page is context for this block.
-        */}
-        <section className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
-          <h2 className="t-label">Retention</h2>
-          <p className="t-small text-ink-muted">
-            Couples who have completed this many days — days you both answered,
-            not days since signing up.
-          </p>
-          <div className="grid grid-cols-4 gap-3 sm:grid-cols-7">
-            {retention.map((r) => (
-              <Stat key={r.milestone} label={`${r.milestone}d`} value={r.pairs} />
-            ))}
-          </div>
-        </section>
-
-        <Rule />
-
-        <section className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
-          <h2 className="t-label">Economy</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat
-              label="Tender out there"
-              value={`T${formatTender(Number(economy.tender_in_circulation ?? 0))}`}
-            />
-            <Stat label="Menu items" value={Number(economy.menu_items_active ?? 0)} />
-            <Stat
-              label="Avg price"
-              value={`T${formatTender(Number(economy.menu_price_avg ?? 0))}`}
-            />
-            <Stat
-              label="Fulfilled"
-              value={Number(economy.purchases_fulfilled ?? 0)}
-            />
-          </div>
-          <p className="t-small text-ink-faint">
-            {Number(economy.purchases_requested ?? 0)} request
-            {Number(economy.purchases_requested ?? 0) === 1 ? '' : 's'} outstanding
-            · {Number(economy.purchases_declined ?? 0)} declined ·{' '}
-            {o.richListOptedIn} opted into the Rich List
-          </p>
-        </section>
-
-        <Rule />
-
-        <section className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
-          <h2 className="t-label">Emails</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Sent today" value={Number(nudges.sent_today ?? 0)} />
-            <Stat label="Sent, all time" value={Number(nudges.sent_total ?? 0)} />
-            <Stat label="Stuck unsent" value={Number(nudges.claimed_unsent ?? 0)} />
-            <Stat label="Letters sealed" value={o.lettersSealed} />
-          </div>
-          {Number(nudges.claimed_unsent ?? 0) > 0 ? (
-            <Card>
-              <p className="t-small text-ink">
-                {Number(nudges.claimed_unsent)} nudge
-                {Number(nudges.claimed_unsent) === 1 ? '' : 's'} claimed but never
-                sent. That means the send failed after the claim — check{' '}
-                <code className="font-mono">net._http_response</code> for the
-                status Resend returned.
-              </p>
-            </Card>
-          ) : null}
-          <p className="t-small text-ink-faint">
-            Switched off: {Number(nudges.reminders_off ?? 0)} reminders,{' '}
-            {Number(nudges.partner_off ?? 0)} partner,{' '}
-            {Number(nudges.requests_off ?? 0)} requests
           </p>
         </section>
 
@@ -190,6 +109,83 @@ export default async function AdminPage({
 
           <AdminAccounts accounts={accounts} />
         </section>
+
+        <Rule />
+
+        {/*
+          The number that says whether the product works. A daily-ritual app lives
+          or dies on how many pairs are still here in week two, and everything
+          else on this page is context for this block.
+        */}
+        <section className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
+          <h2 className="t-label">Retention</h2>
+          <p className="t-small text-ink-muted">
+            Couples who have completed this many days — days you both answered,
+            not days since signing up.
+          </p>
+          <div className="grid grid-cols-4 gap-3 sm:grid-cols-7 lg:grid-cols-7">
+            {retention.map((r) => (
+              <Stat key={r.milestone} label={`${r.milestone}d`} value={r.pairs} />
+            ))}
+          </div>
+        </section>
+
+        <Rule />
+
+        <div className="grid gap-8 lg:grid-cols-2">
+        <section className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
+          <h2 className="t-label">Economy</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
+            <Stat
+              label="Tender out there"
+              value={`T${formatTender(Number(economy.tender_in_circulation ?? 0))}`}
+            />
+            <Stat label="Menu items" value={Number(economy.menu_items_active ?? 0)} />
+            <Stat
+              label="Avg price"
+              value={`T${formatTender(Number(economy.menu_price_avg ?? 0))}`}
+            />
+            <Stat
+              label="Fulfilled"
+              value={Number(economy.purchases_fulfilled ?? 0)}
+            />
+          </div>
+          <p className="t-small text-ink-faint">
+            {Number(economy.purchases_requested ?? 0)} request
+            {Number(economy.purchases_requested ?? 0) === 1 ? '' : 's'} outstanding
+            · {Number(economy.purchases_declined ?? 0)} declined ·{' '}
+            {o.richListOptedIn} opted into the Rich List
+          </p>
+        </section>
+
+        <section className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
+          <h2 className="t-label">Emails</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
+            <Stat label="Sent today" value={Number(nudges.sent_today ?? 0)} />
+            <Stat label="Sent, all time" value={Number(nudges.sent_total ?? 0)} />
+            <Stat label="Stuck unsent" value={Number(nudges.claimed_unsent ?? 0)} />
+            <Stat label="Letters sealed" value={o.lettersSealed} />
+          </div>
+          {Number(nudges.claimed_unsent ?? 0) > 0 ? (
+            <Card>
+              <p className="t-small text-ink">
+                {Number(nudges.claimed_unsent)} nudge
+                {Number(nudges.claimed_unsent) === 1 ? '' : 's'} claimed but never
+                sent. That means the send failed after the claim — check{' '}
+                <code className="font-mono">net._http_response</code> for the
+                status Resend returned.
+              </p>
+            </Card>
+          ) : null}
+          <p className="t-small text-ink-faint">
+            Switched off: {Number(nudges.reminders_off ?? 0)} reminders,{' '}
+            {Number(nudges.partner_off ?? 0)} partner,{' '}
+            {Number(nudges.requests_off ?? 0)} requests
+          </p>
+        </section>
+        </div>
+
+        <Rule />
 
         <Rule />
 
