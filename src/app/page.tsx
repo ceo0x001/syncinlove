@@ -296,6 +296,7 @@ function Hub({ home }: { home: HomeState }) {
                 claimed={invite.claimed}
                 expired={invite.expired}
                 canRevoke={invite.canRevoke}
+                declined={invite.declined}
               />
             </div>
           </>

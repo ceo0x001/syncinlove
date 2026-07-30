@@ -17,12 +17,22 @@ export function InvitePanel({
   claimed,
   expired,
   canRevoke,
+  declined = false,
 }: {
   url: string
   partnerFirstName: string | null
   claimed: boolean
   expired: boolean
   canRevoke: boolean
+  /**
+   * They chose to say they can't join.
+   *
+   * Carries no reason, and the copy below must not invent one. The recipient
+   * pressed a button to send this much and nothing more — see 0018. Guessing out
+   * loud ("they're probably already paired") would leak by implication exactly
+   * what the design refuses to state.
+   */
+  declined?: boolean
 }) {
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,6 +63,35 @@ export function InvitePanel({
       }
     }
     void copy()
+  }
+
+  /**
+   * Checked before `claimed`, though the two cannot both be true — decline_invite
+   * refuses an already-claimed invite. Ordered this way so that if that ever stops
+   * holding, the more specific state wins rather than being silently swallowed.
+   */
+  if (declined) {
+    return (
+      <div className="stack" style={{ ['--stack-gap' as string]: '0.75rem' }}>
+        <Notice>
+          They can&rsquo;t join right now. That&rsquo;s all they said, and the link has
+          closed &mdash; you can send a fresh one whenever you like.
+        </Notice>
+        <Button
+          variant="quiet"
+          disabled={pending}
+          onClick={() =>
+            startTransition(async () => {
+              const result = await reissueInvite()
+              if (result?.error) setError(result.error)
+            })
+          }
+        >
+          {pending ? 'Making a new link…' : 'Make a new link'}
+        </Button>
+        {error ? <Notice tone="error">{error}</Notice> : null}
+      </div>
+    )
   }
 
   if (claimed) {

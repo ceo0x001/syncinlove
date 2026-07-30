@@ -1,13 +1,14 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ClaimEmail } from '@/components/claim-email'
+import { DeclineInvite, SayNothing } from '@/components/decline-invite'
 import { EntryForm } from '@/components/entry-form'
 import { SetupNotice } from '@/components/setup-notice'
 import { Button, Card, Notice, Screen, Wordmark } from '@/components/ui'
 import { hashToken } from '@/lib/invite/token'
 import { isConfigured } from '@/lib/supabase/env'
 import { createClient } from '@/lib/supabase/server'
-import { getMe } from '@/lib/session'
+import { loadHome } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +31,7 @@ type PeekState =
   | { state: 'expired'; inviter_first_name: string | null }
   | { state: 'claimed'; inviter_first_name: string | null }
   | { state: 'claimed_by_you'; inviter_first_name: string | null }
+  | { state: 'declined'; inviter_first_name: string | null }
   | { state: 'open'; inviter_first_name: string | null; pair_id: string }
 
 export default async function JoinPage({
@@ -55,7 +57,14 @@ export default async function JoinPage({
   }
 
   const peek = data as PeekState
-  const me = await getMe()
+
+  // loadHome rather than getMe, because this screen has to know whether the
+  // visitor is already in a pairing. It did not before: the branch below carried a
+  // comment claiming "no pairing of their own" and checked only that a name
+  // existed, so somebody already synced saw the whole invitation, filled the form,
+  // and got a raw Postgres error for their trouble.
+  const home = await loadHome()
+  const me = home?.me ?? null
 
   // Already in this pairing — nothing to claim.
   if (peek.state === 'claimed_by_you') redirect('/')
@@ -67,6 +76,18 @@ export default async function JoinPage({
           {peek.state === 'revoked'
             ? 'It was cancelled by whoever sent it. Ask them for a fresh one.'
             : 'It may have been mistyped, or cancelled. Ask for a fresh one.'}
+        </p>
+      </Frame>
+    )
+  }
+
+  if (peek.state === 'declined') {
+    return (
+      <Frame title="You turned this one down.">
+        <p className="t-body text-ink-muted">
+          {peek.inviter_first_name
+            ? `${peek.inviter_first_name} knows you can’t join, and not why. If that changes, ask them for a fresh link.`
+            : 'Whoever sent it knows you can’t join, and not why. If that changes, ask them for a fresh link.'}
         </p>
       </Frame>
     )
@@ -107,6 +128,52 @@ export default async function JoinPage({
   }
 
   const inviter = peek.inviter_first_name ?? 'Someone'
+
+  // Their own pairing's link. Inviters do click their own link to check it works,
+  // and without this they were shown "You want to sync with you."
+  if (home?.pair && peek.pair_id === home.pair.id) redirect('/')
+
+  /**
+   * Already synced with somebody, so this cannot be claimed.
+   *
+   * Gated on a partner existing rather than merely on having a pair, because
+   * claim_invite deliberately DOES let a still-empty pending pairing be traded for
+   * this one — that is the "we both sent links at the same moment" case, and it
+   * must keep working.
+   */
+  if (home?.pair && home.partner) {
+    return (
+      <Frame title={`You’re already synced with ${home.partner.firstName}.`}>
+        <div className="stack" style={{ ['--stack-gap' as string]: '1.5rem' }}>
+          <p className="t-body text-ink-muted">
+            {inviter} sent you this. Sync only works one pairing at a time — the
+            streak, the tender and the vault all belong to the two of you — so
+            there&rsquo;s nothing here to accept without ending what you already have.
+          </p>
+
+          <div className="rounded-[0.875rem] border border-hairline bg-paper-sunken p-4">
+            <p className="t-body text-ink">If you did mean to switch</p>
+            <p className="t-small mt-1 text-ink-muted">
+              You&rsquo;d have to end your pairing with {home.partner.firstName} first,
+              from Settings. That is not a small thing: it stops the streak, and it
+              asks what to do with any letters still sealed between you. Nothing about
+              it is undone by coming back here afterwards.
+            </p>
+            <div className="mt-3">
+              <Link href="/settings" className="block">
+                <Button variant="quiet">Open Settings</Button>
+              </Link>
+            </div>
+          </div>
+
+          <div className="stack" style={{ ['--stack-gap' as string]: '0.75rem' }}>
+            <DeclineInvite token={decodeURIComponent(token)} inviter={inviter} />
+            <SayNothing />
+          </div>
+        </div>
+      </Frame>
+    )
+  }
 
   // Signed in already, with no pairing of their own — claim without re-asking
   // for a name they've already given.

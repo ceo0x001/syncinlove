@@ -126,7 +126,26 @@ export async function startSession(
     const { error } = await supabase.rpc('claim_invite', {
       p_token_hash: hashToken(inviteToken),
     })
-    if (error) return { error: error.message }
+    if (error) {
+      /**
+       * The join screen now checks for an existing pairing up front, so this is a
+       * backstop rather than the main path — it still catches the cases that screen
+       * cannot see: a pairing formed between page load and submit, or a one-person
+       * pending pair that has answers on it and so fails claim_invite's
+       * empty-pair escape hatch.
+       *
+       * Worth translating rather than passing through. "You are already paired with
+       * somebody." is accurate and tells nobody what to do about it.
+       */
+      if (error.code === 'P0008') {
+        return {
+          error:
+            'You’re already synced with someone. Sync works one pairing at a time — ' +
+            'you’d need to end that one in Settings before joining another.',
+        }
+      }
+      return { error: error.message }
+    }
   } else {
     const invite = createInvite()
     const { error } = await supabase.rpc('create_pair', {
@@ -270,10 +289,32 @@ export async function revokeClaim(): Promise<ActionResult> {
  * pair creation. A partner who took longer than a week left the inviter holding a
  * dead link with nothing to press, which quietly killed the pairing.
  */
+/**
+ * "Let them know I can't join."
+ *
+ * Pressed by the person who received the link, never automatic. What reaches the
+ * sender carries no reason — see 0018. Saying nothing stays an option and costs
+ * the decliner nothing.
+ */
+export async function declineInvite(token: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('decline_invite', {
+    p_token_hash: hashToken(token),
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/')
+  return { ok: true }
+}
+
 export async function reissueInvite(): Promise<ActionResult> {
   const supabase = await createClient()
 
   const invite = createInvite()
+  // Clear any decline on the outgoing link first, so the panel reports the state
+  // of the link that now exists rather than the one it replaced.
+  await supabase.rpc('clear_declines')
+
   const { error } = await supabase.rpc('reissue_invite', {
     p_token_hash: invite.tokenHash,
     p_nonce: invite.nonce,

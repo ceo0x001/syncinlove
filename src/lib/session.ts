@@ -76,6 +76,14 @@ export interface InviteInfo {
   expired: boolean
   /** Whether the inviter is still inside the 24-hour undo window. */
   canRevoke: boolean
+  /**
+   * The person it was sent to chose to say they can't join.
+   *
+   * Deliberately carries no reason, here or anywhere else. See 0018 — reporting
+   * *why* somebody could not join would disclose their relationship status to
+   * whoever sent the link, which is not the sender's to know.
+   */
+  declined: boolean
 }
 
 export interface OpenDay {
@@ -315,9 +323,13 @@ export async function loadHome(): Promise<HomeState | null> {
     supabase.from('reveals').select('day_index').eq('pair_id', pair.id),
     supabase
       .from('invites')
-      .select('nonce, expires_at, claimed_at, revoked_at')
+      .select('nonce, expires_at, claimed_at, revoked_at, declined_at')
       .eq('pair_id', pair.id)
-      .is('revoked_at', null)
+      // Unrevoked, OR declined. decline_invite closes the link as well as marking
+      // it, so filtering on revoked_at alone made a declined invite disappear from
+      // the inviter's own panel — the signal would have been recorded and then
+      // never shown to the one person it was for.
+      .or('revoked_at.is.null,declined_at.not.is.null')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -371,6 +383,7 @@ export async function loadHome(): Promise<HomeState | null> {
         !claimedAt && new Date(inviteRes.data.expires_at as string).getTime() <= Date.now(),
       canRevoke:
         Boolean(claimedAt) && Date.now() - new Date(claimedAt as string).getTime() < 24 * 3_600_000,
+      declined: Boolean(inviteRes.data.declined_at),
     }
   }
 
