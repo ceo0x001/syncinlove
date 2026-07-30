@@ -99,10 +99,13 @@ export function NavLink({
   href,
   children,
   tone = 'default',
+  className = '',
 }: {
   href: string
   children: ReactNode
   tone?: 'default' | 'accent'
+  /** For responsive visibility. The header has more chips than a 375px row fits. */
+  className?: string
 }) {
   const tones = {
     default: 'border-hairline bg-paper-raised text-ink-muted hover:text-ink',
@@ -114,9 +117,15 @@ export function NavLink({
   return (
     <Link
       href={href}
+      // px-3 rather than px-3.5, and the height left alone. Four chips on a
+      // narrow phone need the horizontal room, but 2.75rem is already under the
+      // 48px this file commits to for touch targets — taking it lower to win
+      // layout would be trading one accessibility problem for another.
       className={
-        'press t-label inline-flex min-h-[2.75rem] items-center rounded-full border px-3.5 ' +
-        tones[tone]
+        'press t-label inline-flex min-h-[2.75rem] shrink-0 items-center ' +
+        'whitespace-nowrap rounded-full border px-3 ' +
+        tones[tone] +
+        (className ? ` ${className}` : '')
       }
     >
       {children}

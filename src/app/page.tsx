@@ -140,25 +140,42 @@ function Hub({ home }: { home: HomeState }) {
       {/* Staggered so the screen assembles rather than appearing all at once —
           the same grammar as the reveal, at a fraction of the intensity. */}
       <div className="stack stagger" style={{ ['--stack-gap' as string]: '2rem' }}>
-        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-          <Wordmark />
-          <span className="flex flex-wrap items-center gap-2">
-            {/* Not a chip, and not a link: tapping a streak does nothing, so it
-                must not look like the things beside it that do. */}
-            {streak > 0 ? (
-              <span className="t-label px-1 text-ink-faint">
-                {streak} day{streak === 1 ? '' : 's'}
-              </span>
-            ) : null}
+        {/*
+          Six things wanted this row and only about 327px exists on a 375px
+          phone, so it wrapped to two lines once "You" became "Settings".
+
+          What gives is the balance chip, and only below 420px. It is the one
+          item here that is genuinely redundant: MenuSummary states the balance
+          in full a few blocks down this same screen ("You have T40,000 to spend
+          on their menu"), so hiding it costs nothing. Dropping History or List
+          instead would remove the only route to those pages, and shrinking the
+          chips below 44px would trade a layout problem for a touch-target one.
+        */}
+        <header className="flex items-center justify-between gap-3">
+          {/* shrink-0 or flex squeezes the lockup to make room for the chips,
+              which looks like a rendering fault rather than a tight layout. */}
+          <span className="shrink-0">
+            <Wordmark />
+          </span>
+
+          <nav className="flex items-center gap-1.5">
+            {/* The balance is the one chip that duplicates something already on
+                this screen — MenuSummary states it in full below — so it is the
+                one that goes when the row runs out of room. Hidden via a wrapper
+                rather than `hidden` on the chip itself: both are display
+                utilities, and Tailwind's source order let inline-flex win, so the
+                chip stayed visible and I measured a layout I had not built. */}
             {economy && partner ? (
-              <NavLink href="/menu" tone="accent">
-                <span className="tabular">{tender(economy.mine.balance)}</span>
-              </NavLink>
+              <span className="hidden min-[480px]:contents">
+                <NavLink href="/menu" tone="accent">
+                  <span className="tabular">{tender(economy.mine.balance)}</span>
+                </NavLink>
+              </span>
             ) : null}
             {partner ? <NavLink href="/history">History</NavLink> : null}
             {partner ? <NavLink href="/rich-list">List</NavLink> : null}
             <NavLink href="/settings">Settings</NavLink>
-          </span>
+          </nav>
         </header>
 
         {today ? <TodayCard home={home} day={today} /> : null}
@@ -286,7 +303,26 @@ function Hub({ home }: { home: HomeState }) {
           className="stack t-small pt-2 text-ink-faint"
           style={{ ['--stack-gap' as string]: '0.5rem' }}
         >
-          {today ? <p>Tomorrow’s question in {formatCountdown(secondsToRollover)}.</p> : null}
+          {/*
+            The streak used to sit in the header as plain text among the nav
+            chips, which made it the odd one out — the header's rule is that a
+            chip is somewhere you can go, and a streak is not. Moving it here
+            also gave the row the ~36px it needed to stop wrapping, and it reads
+            better next to the countdown: both are about where you are in the
+            day rather than where you can navigate to.
+          */}
+          {streak > 0 || today ? (
+            <p>
+              {streak > 0 ? (
+                <>
+                  <span className="tabular text-ink-muted">{streak}</span> day
+                  {streak === 1 ? '' : 's'} in a row
+                  {today ? ' · ' : '.'}
+                </>
+              ) : null}
+              {today ? `Tomorrow’s question in ${formatCountdown(secondsToRollover)}.` : null}
+            </p>
+          ) : null}
           <p>
             Something broken, missing, or worth saying?{' '}
             <a
