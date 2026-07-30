@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { Fragment, useMemo, useState, useTransition } from 'react'
 import {
   adminDeleteAccount,
   adminResendCode,
@@ -11,44 +11,86 @@ import type { AdminAccount } from '@/lib/session'
 import { Button, Notice } from './ui'
 
 /**
- * The account list.
+ * The accounts table.
  *
- * A table at desk width and cards on a phone, because these are genuinely two
- * different reading jobs. Scanning forty accounts for the one that has not
- * confirmed an email wants columns that line up; doing the same on a phone wants
- * one account at a time. Squeezing the table into 375px produces neither.
+ * A table at desk width and cards on a phone, because these are two different
+ * reading jobs: scanning forty rows for the one with no confirmed email wants
+ * columns that line up, and doing the same on a phone wants one account at a
+ * time. Squeezing seven columns into 375px serves neither.
  *
- * Metadata only — a name, an address, who they are paired with, whether they can
- * get back in, how active they are. No answers, no menu items, no letters. Users
- * are told "neither of you sees anything until you both have" and "only you write
- * this", and this screen exists without making either of those untrue.
+ * A row expands rather than linking away, so following up on somebody never
+ * loses your place in the list. What expands is still only metadata — who they
+ * are paired with, when they last answered, whether they can get back in. No
+ * answers, no menu items, no letters: users are told "neither of you sees
+ * anything until you both have" and "only you write this", and this console
+ * exists without making either untrue.
  *
- * Deleting asks twice and says what it will and will not take. The guard lives in
- * the database: a pairing is only removed when nobody real is left in it, so
- * removing one half of a couple unpairs the other rather than erasing their
- * history alongside.
+ * Deliberately no "add account". Signing up is the only way an account comes to
+ * exist, and a console that could mint one would need a password or an invite
+ * path that does not exist — a button that cannot work is worse than no button.
  */
+
+const PAGE = 12
+
 export function AdminAccounts({ accounts }: { accounts: AdminAccount[] }) {
-  const [confirming, setConfirming] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirming, setConfirming] = useState<'delete' | 'suspend' | null>(null)
+  const [page, setPage] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  function run(
-    action: () => Promise<{ error?: string; ok?: boolean }>,
-    done?: string,
-  ) {
+  const pages = Math.max(1, Math.ceil(accounts.length / PAGE))
+  const shown = useMemo(
+    () => accounts.slice(page * PAGE, page * PAGE + PAGE),
+    [accounts, page],
+  )
+
+  function run(action: () => Promise<{ error?: string; ok?: boolean }>, done?: string) {
     setError(null)
     setNote(null)
     startTransition(async () => {
       const result = await action()
       if (result.error) setError(result.error)
-      else {
-        setConfirming(null)
-        if (done) setNote(done)
-      }
+      else if (done) setNote(done)
     })
   }
+
+  /** Runs sequentially so one failure reports rather than being lost in a race. */
+  function runBulk(
+    ids: string[],
+    action: (id: string) => Promise<{ error?: string }>,
+    done: (n: number) => string,
+  ) {
+    setError(null)
+    setNote(null)
+    startTransition(async () => {
+      let ok = 0
+      for (const id of ids) {
+        const result = await action(id)
+        if (result.error) {
+          setError(`${result.error} (${ok} of ${ids.length} done)`)
+          return
+        }
+        ok++
+      }
+      setSelected(new Set())
+      setConfirming(null)
+      setNote(done(ok))
+    })
+  }
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const allShownSelected = shown.length > 0 && shown.every((a) => selected.has(a.userId))
 
   if (accounts.length === 0) {
     return (
@@ -60,198 +102,360 @@ export function AdminAccounts({ accounts }: { accounts: AdminAccount[] }) {
   }
 
   return (
-    <div className="stack" style={{ ['--stack-gap' as string]: '0.75rem' }}>
+    <div className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
       {error ? <Notice tone="error">{error}</Notice> : null}
       {note ? <Notice>{note}</Notice> : null}
 
-      {/* ---- Desk: a real table ---- */}
+      {/* ---- Bulk bar. Only present when it has something to act on. ---- */}
+      {selected.size > 0 ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-[0.75rem] border border-accent/35 bg-accent-wash px-4 py-3">
+          <span className="t-small text-ink">
+            {selected.size} selected
+          </span>
+          <span className="flex flex-wrap gap-x-3 gap-y-1">
+            <Action
+              disabled={pending}
+              onClick={() =>
+                runBulk(
+                  [...selected],
+                  (id) => adminSetSuspended(id, true),
+                  (n) => `${n} suspended.`,
+                )
+              }
+            >
+              Suspend
+            </Action>
+            <Action
+              disabled={pending}
+              onClick={() =>
+                runBulk(
+                  [...selected],
+                  (id) => adminSetSuspended(id, false),
+                  (n) => `${n} reinstated.`,
+                )
+              }
+            >
+              Reinstate
+            </Action>
+            <Action disabled={pending} faint onClick={() => setConfirming('delete')}>
+              Delete
+            </Action>
+            <Action disabled={pending} faint onClick={() => setSelected(new Set())}>
+              Clear
+            </Action>
+          </span>
+        </div>
+      ) : null}
+
+      {confirming === 'delete' ? (
+        <div
+          className="stack rounded-[0.75rem] border border-hairline bg-paper-sunken p-4"
+          style={{ ['--stack-gap' as string]: '0.75rem' }}
+        >
+          <p className="t-small text-ink">
+            Delete {selected.size} account{selected.size === 1 ? '' : 's'}? Each
+            one&rsquo;s own answers and tender go with it. Anybody still paired
+            with them keeps everything and is simply unpaired — a shared history
+            is not one person&rsquo;s to erase.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="quiet"
+              disabled={pending}
+              onClick={() =>
+                runBulk(
+                  [...selected],
+                  (id) => adminDeleteAccount(id),
+                  (n) => `${n} deleted.`,
+                )
+              }
+            >
+              {pending ? 'Deleting…' : 'Yes, delete them'}
+            </Button>
+            <Button variant="ghost" disabled={pending} onClick={() => setConfirming(null)}>
+              Keep them
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ---- Desk: the table ---- */}
       <div className="hidden overflow-x-auto rounded-[0.75rem] border border-hairline lg:block">
         <table className="w-full border-collapse text-left">
           <thead>
             <tr className="border-b border-hairline bg-paper-sunken">
-              <Th>Who</Th>
+              <Th className="w-10">
+                <input
+                  type="checkbox"
+                  checked={allShownSelected}
+                  onChange={() =>
+                    setSelected((prev) => {
+                      const next = new Set(prev)
+                      if (allShownSelected) shown.forEach((a) => next.delete(a.userId))
+                      else shown.forEach((a) => next.add(a.userId))
+                      return next
+                    })
+                  }
+                  aria-label="Select every account on this page"
+                  className="size-[1.05rem] accent-[var(--accent)]"
+                />
+              </Th>
+              <Th className="w-8" />
+              <Th>Name</Th>
               <Th>Email</Th>
               <Th>Paired with</Th>
               <Th className="text-right">Days</Th>
-              <Th>Last answered</Th>
-              <Th>Joined</Th>
+              <Th>Status</Th>
               <Th className="text-right">Actions</Th>
             </tr>
           </thead>
           <tbody>
-            {accounts.map((a) => (
-              <tr
-                key={a.userId}
-                className="border-b border-hairline last:border-0 hover:bg-paper-sunken/60"
-              >
-                <Td>
-                  <span className="t-body block text-ink">
-                    {a.firstName ?? <span className="text-ink-faint">no name</span>}
-                  </span>
-                  <span className="t-small flex flex-wrap gap-x-2 text-ink-faint">
-                    {a.isAdmin ? <span className="text-ink">admin</span> : null}
-                    {a.suspendedAt ? (
-                      <span className="text-[var(--warning)]">suspended</span>
-                    ) : null}
-                    {a.optedIn ? <span>on the list</span> : null}
-                  </span>
-                </Td>
-                <Td>
-                  <span className="t-small block break-all text-ink-muted">
-                    {a.email ?? a.pendingEmail ?? '—'}
-                  </span>
-                  {!a.confirmed ? (
-                    <span className="t-small text-[var(--warning)]">unconfirmed</span>
-                  ) : null}
-                </Td>
-                <Td>
-                  <span className="t-small block text-ink-muted">
-                    {a.partnerName ?? (a.pairId ? 'waiting' : '—')}
-                  </span>
-                  {a.partnerEmail ? (
-                    <span className="t-small block break-all text-ink-faint">
-                      {a.partnerEmail}
+            {shown.map((a) => (
+              <Fragment key={a.userId}>
+                <tr
+                  className={
+                    'border-b border-hairline last:border-0 ' +
+                    (selected.has(a.userId) ? 'bg-accent-wash/50' : 'hover:bg-paper-sunken/50')
+                  }
+                >
+                  <Td>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(a.userId)}
+                      onChange={() => toggle(a.userId)}
+                      aria-label={`Select ${a.firstName ?? 'this account'}`}
+                      className="size-[1.05rem] accent-[var(--accent)]"
+                    />
+                  </Td>
+                  <Td>
+                    <button
+                      type="button"
+                      onClick={() => setExpanded(expanded === a.userId ? null : a.userId)}
+                      aria-label={expanded === a.userId ? 'Hide detail' : 'Show detail'}
+                      className="press text-ink-faint hover:text-ink"
+                    >
+                      <Chevron open={expanded === a.userId} />
+                    </button>
+                  </Td>
+                  <Td>
+                    <span className="flex items-center gap-2.5">
+                      <Avatar name={a.firstName} />
+                      <span className="t-body text-ink">
+                        {a.firstName ?? <span className="text-ink-faint">no name</span>}
+                      </span>
                     </span>
-                  ) : null}
-                </Td>
-                <Td className="t-small tabular text-right text-ink">{a.completedDays}</Td>
-                <Td className="t-small text-ink-faint">
-                  {a.lastActive ? new Date(a.lastActive).toLocaleDateString() : 'never'}
-                </Td>
-                <Td className="t-small tabular text-ink-faint">
-                  {new Date(a.createdAt).toLocaleDateString()}
-                </Td>
-                <Td className="text-right">
-                  <Actions
-                    account={a}
-                    pending={pending}
-                    run={run}
-                    confirming={confirming === a.userId}
-                    onAskDelete={() => setConfirming(a.userId)}
-                    onCancel={() => setConfirming(null)}
-                  />
-                </Td>
-              </tr>
+                  </Td>
+                  <Td className="t-small break-all text-ink-muted">
+                    {a.email ?? a.pendingEmail ?? '—'}
+                  </Td>
+                  <Td className="t-small text-ink-muted">
+                    {a.partnerName ?? (a.pairId ? 'waiting' : '—')}
+                  </Td>
+                  <Td className="t-small tabular text-right text-ink">{a.completedDays}</Td>
+                  <Td>
+                    <Pills account={a} />
+                  </Td>
+                  <Td className="text-right">
+                    <RowActions account={a} pending={pending} run={run} />
+                  </Td>
+                </tr>
+
+                {expanded === a.userId ? (
+                  <tr className="border-b border-hairline bg-paper-sunken/60">
+                    <td colSpan={8} className="px-4 py-4">
+                      <Detail account={a} />
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* ---- Phone: one account at a time ---- */}
+      {/* ---- Phone: one at a time ---- */}
       <div className="stack lg:hidden" style={{ ['--stack-gap' as string]: '0.625rem' }}>
-        {accounts.map((a) => (
+        {shown.map((a) => (
           <div
             key={a.userId}
             className="rounded-[0.75rem] border border-hairline bg-paper-raised p-4"
           >
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <p className="t-title text-ink">
-                {a.firstName ?? <span className="text-ink-faint">no name yet</span>}
-                {a.isAdmin ? (
-                  <span className="t-label ml-2 rounded-full border border-accent/35 bg-accent-wash px-2 py-0.5 text-ink">
-                    admin
-                  </span>
-                ) : null}
-              </p>
-              <p className="t-small tabular text-ink-faint">
-                {new Date(a.createdAt).toLocaleDateString()}
-              </p>
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={selected.has(a.userId)}
+                onChange={() => toggle(a.userId)}
+                aria-label={`Select ${a.firstName ?? 'this account'}`}
+                className="mt-1 size-[1.05rem] shrink-0 accent-[var(--accent)]"
+              />
+              <Avatar name={a.firstName} />
+              <div className="min-w-0 flex-1">
+                <p className="t-title text-ink">
+                  {a.firstName ?? <span className="text-ink-faint">no name yet</span>}
+                </p>
+                <p className="t-small break-all text-ink-muted">
+                  {a.email ?? a.pendingEmail ?? 'no address'}
+                </p>
+                <div className="mt-1.5">
+                  <Pills account={a} />
+                </div>
+              </div>
             </div>
 
-            <p className="t-small mt-1 break-all text-ink-muted">
-              {a.email ?? a.pendingEmail ?? 'no address'}
-              {!a.confirmed ? (
-                <span className="text-[var(--warning)]"> · unconfirmed</span>
-              ) : null}
-            </p>
-
-            <p className="t-small mt-1 text-ink-faint">
-              {a.partnerName
-                ? `with ${a.partnerName}`
-                : a.pairId
-                  ? 'waiting on a partner'
-                  : 'no pairing'}
-              {` · ${a.completedDays} day${a.completedDays === 1 ? '' : 's'}`}
-              {a.lastActive
-                ? ` · last answered ${new Date(a.lastActive).toLocaleDateString()}`
-                : ' · never answered'}
-            </p>
-
-            {a.suspendedAt ? (
-              <p className="t-small mt-1 text-[var(--warning)]">
-                Suspended {new Date(a.suspendedAt).toLocaleDateString()}
-                {a.suspendedReason ? ` — ${a.suspendedReason}` : ''}
-              </p>
-            ) : null}
+            <div className="mt-3 border-t border-hairline pt-3">
+              <Detail account={a} />
+            </div>
 
             <div className="mt-3">
-              <Actions
-                account={a}
-                pending={pending}
-                run={run}
-                confirming={confirming === a.userId}
-                onAskDelete={() => setConfirming(a.userId)}
-                onCancel={() => setConfirming(null)}
-              />
+              <RowActions account={a} pending={pending} run={run} />
             </div>
           </div>
         ))}
       </div>
+
+      {/* ---- Pagination ---- */}
+      {pages > 1 ? (
+        <div className="flex items-center justify-between gap-4">
+          <p className="t-small tabular text-ink-faint">
+            {page * PAGE + 1}–{Math.min((page + 1) * PAGE, accounts.length)} of{' '}
+            {accounts.length}
+          </p>
+          <div className="flex gap-2">
+            <Page disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+              Previous
+            </Page>
+            <Page disabled={page >= pages - 1} onClick={() => setPage((p) => p + 1)}>
+              Next
+            </Page>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
 
-function Th({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <th className={`t-label px-3 py-2.5 font-medium ${className}`}>{children}</th>
+/**
+ * Initials in a tinted circle.
+ *
+ * There are no photographs in this app and there should not be — it would be a
+ * new category of personal data collected for decoration. The hue comes from the
+ * name so the same person is the same colour every time, which is what makes an
+ * avatar useful for scanning at all.
+ */
+function Avatar({ name }: { name: string | null }) {
+  const letter = (name ?? '?').trim().charAt(0).toUpperCase() || '?'
+  const hue = [...(name ?? '?')].reduce((h, c) => h + c.charCodeAt(0), 0) % 360
+
+  return (
+    <span
+      aria-hidden="true"
+      className="flex size-8 shrink-0 items-center justify-center rounded-full text-[0.8125rem] font-medium"
+      style={{
+        background: `oklch(0.92 0.06 ${hue})`,
+        color: `oklch(0.35 0.09 ${hue})`,
+      }}
+    >
+      {letter}
+    </span>
+  )
 }
 
-function Td({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <td className={`px-3 py-3 align-top ${className}`}>{children}</td>
+function Pills({ account }: { account: AdminAccount }) {
+  return (
+    <span className="flex flex-wrap gap-1.5">
+      {account.suspendedAt ? (
+        <Pill tone="warn">Suspended</Pill>
+      ) : account.confirmed ? (
+        <Pill tone="good">Active</Pill>
+      ) : (
+        <Pill tone="warn">Unconfirmed</Pill>
+      )}
+      {account.isAdmin ? <Pill tone="accent">Admin</Pill> : null}
+      {account.optedIn ? <Pill tone="plain">On the list</Pill> : null}
+    </span>
+  )
 }
 
-function Actions({
+function Pill({
+  children,
+  tone,
+}: {
+  children: React.ReactNode
+  tone: 'good' | 'warn' | 'accent' | 'plain'
+}) {
+  const tones = {
+    good: 'border-[var(--success)]/35 text-ink',
+    warn: 'border-[var(--warning)]/45 text-ink',
+    accent: 'border-accent/40 bg-accent-wash text-ink',
+    plain: 'border-hairline text-ink-muted',
+  }
+  const dots = {
+    good: 'var(--success)',
+    warn: 'var(--warning)',
+    accent: 'var(--accent)',
+    plain: 'var(--ink-faint)',
+  }
+
+  return (
+    <span
+      className={`t-label inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 ${tones[tone]}`}
+    >
+      <span
+        aria-hidden="true"
+        className="size-1.5 rounded-full"
+        style={{ background: dots[tone] }}
+      />
+      {children}
+    </span>
+  )
+}
+
+/** The expanded row. Metadata only — see the note at the top of this file. */
+function Detail({ account }: { account: AdminAccount }) {
+  const items: [string, string][] = [
+    ['Paired with', account.partnerName ?? (account.pairId ? 'nobody yet' : 'no pairing')],
+    ['Their email', account.partnerEmail ?? '—'],
+    ['Pairing', account.pairStatus ?? '—'],
+    ['Days completed', String(account.completedDays)],
+    [
+      'Last answered',
+      account.lastActive ? new Date(account.lastActive).toLocaleDateString() : 'never',
+    ],
+    ['Joined', new Date(account.createdAt).toLocaleDateString()],
+    ['Address confirmed', account.confirmed ? 'yes' : 'no — cannot be recovered'],
+    [
+      'Suspended',
+      account.suspendedAt
+        ? `${new Date(account.suspendedAt).toLocaleDateString()}${
+            account.suspendedReason ? ` — ${account.suspendedReason}` : ''
+          }`
+        : 'no',
+    ],
+  ]
+
+  return (
+    <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+      {items.map(([label, value]) => (
+        <div key={label}>
+          <dt className="t-label">{label}</dt>
+          <dd className="t-small mt-0.5 break-all text-ink-muted">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+function RowActions({
   account,
   pending,
   run,
-  confirming,
-  onAskDelete,
-  onCancel,
 }: {
   account: AdminAccount
   pending: boolean
   run: (action: () => Promise<{ error?: string; ok?: boolean }>, done?: string) => void
-  confirming: boolean
-  onAskDelete: () => void
-  onCancel: () => void
 }) {
-  if (confirming) {
-    return (
-      <div
-        className="stack rounded-[0.625rem] border border-hairline bg-paper-sunken p-3 text-left"
-        style={{ ['--stack-gap' as string]: '0.625rem' }}
-      >
-        <p className="t-small text-ink">
-          Delete {account.firstName ?? 'this account'}?{' '}
-          {account.partnerName
-            ? `${account.partnerName} keeps everything and is simply unpaired — a shared history is not one person’s to erase.`
-            : 'Nobody else is in their pairing, so it goes too.'}
-        </p>
-        <Button
-          variant="quiet"
-          disabled={pending}
-          onClick={() => run(() => adminDeleteAccount(account.userId))}
-        >
-          {pending ? 'Deleting…' : 'Yes, delete'}
-        </Button>
-        <Button variant="ghost" disabled={pending} onClick={onCancel}>
-          Keep it
-        </Button>
-      </div>
-    )
-  }
-
   return (
-    <div className="flex flex-wrap justify-end gap-x-3 gap-y-1">
+    <span className="flex flex-wrap justify-end gap-x-3 gap-y-1">
       <Action
         disabled={pending}
         onClick={() => run(() => adminSetSuspended(account.userId, !account.suspendedAt))}
@@ -277,10 +481,7 @@ function Actions({
       >
         {account.isAdmin ? 'Revoke admin' : 'Make admin'}
       </Action>
-      <Action disabled={pending} onClick={onAskDelete} faint>
-        Delete
-      </Action>
-    </div>
+    </span>
   )
 }
 
@@ -301,7 +502,7 @@ function Action({
       disabled={disabled}
       onClick={onClick}
       className={
-        'press t-small whitespace-nowrap underline underline-offset-4 hover:text-ink ' +
+        'press t-small whitespace-nowrap underline underline-offset-4 hover:text-ink disabled:opacity-40 ' +
         (faint
           ? 'text-ink-faint decoration-hairline'
           : 'text-ink-muted decoration-hairline-strong')
@@ -310,4 +511,50 @@ function Action({
       {children}
     </button>
   )
+}
+
+function Page({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  disabled: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="press t-label min-h-[2.5rem] rounded-full border border-hairline bg-paper-raised px-4 text-ink-muted hover:text-ink disabled:opacity-40"
+    >
+      {children}
+    </button>
+  )
+}
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`size-4 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+      aria-hidden="true"
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  )
+}
+
+function Th({ children, className = '' }: { children?: React.ReactNode; className?: string }) {
+  return <th className={`t-label px-4 py-3 font-medium ${className}`}>{children}</th>
+}
+
+function Td({ children, className = '' }: { children?: React.ReactNode; className?: string }) {
+  return <td className={`px-4 py-3 align-middle ${className}`}>{children}</td>
 }
