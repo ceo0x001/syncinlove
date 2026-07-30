@@ -776,12 +776,6 @@ export async function loadAdmin(search?: string): Promise<AdminData | null> {
     }
   }
 
-  console.warn('[loadAdmin] rows returned:', {
-    accounts: Array.isArray(accountsRes.data) ? accountsRes.data.length : null,
-    retention: Array.isArray(retentionRes.data) ? retentionRes.data.length : null,
-    overviewUsers: (overviewRes.data as Record<string, unknown> | null)?.users ?? null,
-  })
-
   const o = (overviewRes.data ?? {}) as Record<string, number>
 
   return {
