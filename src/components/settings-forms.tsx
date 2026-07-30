@@ -6,6 +6,7 @@ import {
   endPairing,
   exportArchive,
   signOutSession,
+  updateNotifyPrefs,
   updateProfile,
 } from '@/app/actions'
 import type { Me } from '@/lib/session'
@@ -452,5 +453,80 @@ export function BurnForm({ canBurn }: { canBurn: boolean }) {
         </Button>
       </div>
     </div>
+  )
+}
+
+/**
+ * Which nudges to send.
+ *
+ * Three switches, not one. All-or-nothing makes people kill the lot because one
+ * of them irritated them, and the one that irritates is rarely the one that
+ * mattered — "your partner is waiting" is the whole point of the app, and
+ * "somebody asked for something" is a promise you made to a person.
+ *
+ * All default on. Somebody who never opens this screen should still be told when
+ * their partner is waiting.
+ */
+export function NotifyForm({ me }: { me: Me }) {
+  const [state, formAction, pending] = useActionState(updateNotifyPrefs, null)
+
+  const kinds = [
+    {
+      name: 'partner',
+      on: me.notify.partner,
+      label: 'When they’ve answered',
+      detail: 'They’re waiting on you, and neither of you sees anything until you have.',
+    },
+    {
+      name: 'reminders',
+      on: me.notify.reminders,
+      label: 'When the day’s about to close',
+      detail: 'One in the evening, only if you haven’t answered. Nothing if you have.',
+    },
+    {
+      name: 'requests',
+      on: me.notify.requests,
+      label: 'When something’s asked of you',
+      detail: 'Somebody spent tender on your menu. No clock on it, but you should know.',
+    },
+  ] as const
+
+  return (
+    <form action={formAction} className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
+      <div>
+        <p className="t-label mb-1 block">Emails</p>
+        <p className="t-small mb-3 text-ink-muted">
+          Only ever about your own pairing, at most one of each a day. Never
+          anything either of you has written.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {kinds.map((kind) => (
+          <label
+            key={kind.name}
+            className="press flex min-h-[3rem] cursor-pointer items-start gap-3 rounded-[0.625rem] border border-hairline bg-paper-raised px-4 py-3"
+          >
+            <input
+              type="checkbox"
+              name={kind.name}
+              defaultChecked={kind.on}
+              className="mt-0.5 size-[1.125rem] shrink-0 accent-[var(--accent)]"
+            />
+            <span>
+              <span className="t-body block text-ink">{kind.label}</span>
+              <span className="t-small text-ink-muted">{kind.detail}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      {state?.error ? <Notice tone="error">{state.error}</Notice> : null}
+      {state?.ok ? <Notice>Saved.</Notice> : null}
+
+      <Button type="submit" variant="quiet" disabled={pending}>
+        {pending ? 'Saving…' : 'Save email choices'}
+      </Button>
+    </form>
   )
 }

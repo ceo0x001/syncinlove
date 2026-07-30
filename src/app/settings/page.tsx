@@ -6,6 +6,7 @@ import {
   BurnForm,
   EndPairingForm,
   ExportButton,
+  NotifyForm,
   ProfileForm,
   SignOutForm,
 } from '@/components/settings-forms'
@@ -69,6 +70,10 @@ export default async function SettingsPage() {
             </div>
           </>
         )}
+
+        <Rule />
+
+        <NotifyForm me={me} />
 
         <Rule />
 

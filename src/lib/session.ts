@@ -33,6 +33,8 @@ export interface Me {
    * those two are a couple, so one person cannot make it for both.
    */
   listOptIn: boolean
+  /** Which nudges they want. Each defaults on, and each is separately refusable. */
+  notify: { reminders: boolean; partner: boolean; requests: boolean }
 }
 
 export interface Partner {
@@ -164,7 +166,7 @@ export async function getMe(): Promise<Me | null> {
 
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('first_name, list_display, list_alias, list_opt_in')
+    .select('first_name, list_display, list_alias, list_opt_in, notify_reminders, notify_partner, notify_requests')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -192,6 +194,14 @@ export async function getMe(): Promise<Me | null> {
     // Defaults to false, and a failed read must also read as false — never
     // publish somebody because a query went wrong.
     listOptIn: profile?.list_opt_in === true,
+    // Default ON when the read fails, matching the column defaults — the failure
+    // mode should be a reminder somebody didn't want, not silence they didn't ask
+    // for on the day their streak broke.
+    notify: {
+      reminders: profile?.notify_reminders !== false,
+      partner: profile?.notify_partner !== false,
+      requests: profile?.notify_requests !== false,
+    },
   }
 }
 

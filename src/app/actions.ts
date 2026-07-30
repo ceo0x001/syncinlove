@@ -550,6 +550,25 @@ export async function endPairing(letters: 'burn' | 'keep'): Promise<ActionResult
   return { ok: true }
 }
 
+/** Which nudges to send. Each is separately refusable. */
+export async function updateNotifyPrefs(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('update_notify_prefs', {
+    // An unchecked box sends nothing, and this form always submits all three, so
+    // absence is a deliberate no rather than "leave it alone".
+    p_reminders: formData.get('reminders') === 'on',
+    p_partner: formData.get('partner') === 'on',
+    p_requests: formData.get('requests') === 'on',
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/settings')
+  return { ok: true }
+}
+
 /**
  * Sign out of this browser.
  *
