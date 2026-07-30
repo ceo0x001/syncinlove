@@ -299,4 +299,88 @@ export const DESIRE: Question[] = [
       },
     ],
   },
+  {
+    id: 'q-desired-how',
+    category: 'desire',
+    renewable: false,
+    prompt: 'How do you most want to be wanted?',
+    facets: [
+      {
+        kind: 'scale',
+        id: 'directness',
+        ask: 'How direct do you want it?',
+        askAbout: 'How direct does {them} want it?',
+        minLabel: 'Hinted at',
+        maxLabel: 'Said outright',
+      },
+      {
+        kind: 'choice',
+        id: 'form',
+        ask: 'In what form?',
+        askAbout: 'In what form, for {them}?',
+        options: [
+          { id: 'any', label: 'Any of it works', neutral: true },
+          { id: 'words', label: 'Told, in words' },
+          { id: 'touch', label: 'Reached for' },
+          { id: 'chosen', label: 'Chosen over other options' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'q-pursue',
+    category: 'desire',
+    renewable: false,
+    prompt: 'Pursuing, or being pursued?',
+    facets: [
+      {
+        kind: 'scale',
+        id: 'lean',
+        ask: 'Which way do you lean?',
+        askAbout: 'Which way does {them} lean?',
+        minLabel: 'I want to be pursued',
+        maxLabel: 'I want to pursue',
+      },
+      {
+        kind: 'choice',
+        id: 'why',
+        ask: 'What makes the difference?',
+        askAbout: 'What makes the difference for {them}?',
+        options: [
+          { id: 'either', label: 'Either is fine', neutral: true },
+          { id: 'safe', label: 'Being wanted feels safe' },
+          { id: 'alive', label: 'Wanting someone feels alive' },
+          { id: 'mood', label: 'It depends on the week' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'q-desire-drop',
+    category: 'desire',
+    renewable: false,
+    prompt: 'What kills it fastest?',
+    facets: [
+      {
+        kind: 'scale',
+        id: 'speed',
+        ask: 'How quickly does it go?',
+        askAbout: 'How quickly does it go for {them}?',
+        minLabel: 'Slowly',
+        maxLabel: 'Instantly',
+      },
+      {
+        kind: 'choice',
+        id: 'cause',
+        ask: 'What does it?',
+        askAbout: 'What does it for {them}?',
+        options: [
+          { id: 'nothing', label: 'Not much does', neutral: true },
+          { id: 'tired', label: 'Being exhausted' },
+          { id: 'unresolved', label: 'Something unsaid between us' },
+          { id: 'rushed', label: 'Feeling rushed' },
+        ],
+      },
+    ],
+  },
 ]

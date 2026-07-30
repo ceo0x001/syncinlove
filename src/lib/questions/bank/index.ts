@@ -1,4 +1,4 @@
-import type { Question } from '../types'
+import type { Category, Question } from '../types'
 import { LIGHT } from './light'
 import { LOGISTICS } from './logistics'
 import { DEEP } from './deep'
@@ -44,7 +44,7 @@ export const QUESTIONS: Question[] = [
  * nothing heavy on consecutive days. A pair whose second question is "what do
  * you suspect I don't fully know about you" does not come back for a third.
  */
-export const SEQUENCE: string[] = [
+const RAMP: readonly string[] = [
   // ---- Week 1. Easy, warm, quick. -----------------------------------------
   'q-sleep',
   'q-help-this-week',
@@ -123,42 +123,108 @@ export const SEQUENCE: string[] = [
   'q-afraid-changes',
   'q-ten-years',
 
-  // ---- Week 10 onward. Values, and sex. -----------------------------------
-  //
-  // Alternating, not blocked. The no-two-consecutive-days-on-one-axis rule is
-  // load-bearing: twelve nights of sex questions in a row is an interrogation,
-  // and seven nights of dealbreakers is a tribunal. Alternating them also means
-  // the explicit axis arrives among something gentler rather than as a switch
-  // being thrown.
-  //
-  // Sex enters around week nine rather than week twelve, which is the honest
-  // cost of alternating with only one other axis to alternate against. Pushing
-  // it later needs more light and logistics questions to space it with — part of
-  // the remaining work to grow this bank toward two years of unique days.
-  'q-apology-shape',
-  'q-how-often',
-  'q-money-instinct',
-  'q-what-i-miss',
-  'q-effort-fair',
-  'q-initiate',
-  'q-conflict-style',
-  'q-after',
-  'q-forgive-what',
-  'q-hardest-ask',
-  'q-two-years',
-  'q-turned-off',
-  'q-privacy-line',
-  'q-intensity',
-  'q-friend-crossed',
-  'q-body-seen',
-  'q-lie-size',
-  'q-out-loud',
-  'q-family-pull',
-  'q-in-charge',
-  'q-ambition-cost',
-  'q-anticipation',
-  'q-dealbreaker-real',
-  'q-fantasy-hold',
+] as const
+
+/**
+ * Everything after the ramp, ordered by rule rather than by hand.
+ *
+ * The ramp above stays hand-written. Which question lands on day three is the most
+ * load-bearing content decision in this app and is not something to hand to an
+ * algorithm.
+ *
+ * Past that it inverts. SEQUENCE has to contain every question exactly once, so a
+ * bank grown toward two years of unique days would mean hand-placing seven hundred
+ * ids while checking two invariants across all of them by eye. Worse, it makes every
+ * new question expensive: drop one in and the whole array needs re-reading. So the
+ * tail is generated, the rules live in code, and adding a question becomes "append
+ * it to its axis file".
+ *
+ * DETERMINISM IS NOT OPTIONAL. SEQUENCE is built once at module load and
+ * questionForDay must be a pure function of the day index — two server instances
+ * disagreeing about day 200 would serve a couple different questions depending on
+ * which one handled the request. No shuffling, no clock, no randomness: same bank
+ * in, same order out, on every machine, forever.
+ */
+
+/** Axes that ask something costly. Never two in a row if it can be helped. */
+const HEAVY: ReadonlySet<Category> = new Set([
+  'deep',
+  'friction',
+  'desire',
+  'values',
+  'intimacy',
+])
+
+/**
+ * Greedy interleave: take from the largest remaining axis that is not the one just
+ * used, preferring a gentle axis after a heavy one.
+ *
+ * Largest-remaining-first is what makes the no-consecutive-axis rule hold all the
+ * way to the final question. This kind of reordering fails at the tail rather than
+ * the start — take anything else and you finish on a run of whichever axis was
+ * over-represented.
+ *
+ * Gentle-after-heavy is a preference, not a rule, because with a heavy-dominated
+ * bank strict alternation is arithmetically impossible. It improves on its own as
+ * light and logistics grow: every question added to a gentle axis buys spacing
+ * everywhere in the tail, with nothing re-ordered by hand.
+ */
+function interleave(pool: readonly Question[], after: Category | null): string[] {
+  const groups = new Map<Category, string[]>()
+  for (const q of pool) {
+    const list = groups.get(q.category)
+    if (list) list.push(q.id)
+    else groups.set(q.category, [q.id])
+  }
+
+  const out: string[] = []
+  let prev = after
+
+  for (;;) {
+    const remaining = [...groups.entries()].filter(([, ids]) => ids.length > 0)
+    if (remaining.length === 0) break
+
+    const notPrev = remaining.filter(([cat]) => cat !== prev)
+    /*
+     * Only the previous axis is left. Emitting it breaks the rule, but dropping the
+     * questions would lose them from SEQUENCE and fail the permutation check — a
+     * visibly imperfect sequence beats a silently incomplete bank. The test
+     * asserting no consecutive axes is what makes this loud if it ever happens.
+     */
+    const usable = notPrev.length > 0 ? notPrev : remaining
+
+    const gentle =
+      prev !== null && HEAVY.has(prev) ? usable.filter(([cat]) => !HEAVY.has(cat)) : []
+    const tier = gentle.length > 0 ? gentle : usable
+
+    // Count first, then axis name. The second key is what makes this stable rather
+    // than dependent on Map insertion order.
+    tier.sort((a, b) => b[1].length - a[1].length || (a[0] < b[0] ? -1 : 1))
+
+    const [cat, ids] = tier[0]
+    out.push(ids.shift() as string)
+    prev = cat
+  }
+
+  return out
+}
+
+const RAMP_SET = new Set<string>(RAMP)
+const RAMP_LAST = QUESTIONS.find((q) => q.id === RAMP[RAMP.length - 1])?.category ?? null
+
+/**
+ * The order every pair walks, ramp first.
+ *
+ * Still a permutation of QUESTIONS, which the tests check. The tail is every
+ * question the ramp does not name, so a new question joins it automatically and none
+ * can be silently dropped.
+ */
+export const SEQUENCE: string[] = [
+  ...RAMP,
+  ...interleave(
+    QUESTIONS.filter((q) => !RAMP_SET.has(q.id)),
+    RAMP_LAST,
+  ),
 ]
 
 const BY_ID = new Map(QUESTIONS.map((q) => [q.id, q]))

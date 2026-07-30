@@ -353,4 +353,88 @@ export const VALUES: Question[] = [
       },
     ],
   },
+  {
+    id: 'q-loyalty-line',
+    category: 'values',
+    renewable: false,
+    prompt: 'What does loyalty actually mean to you?',
+    facets: [
+      {
+        kind: 'scale',
+        id: 'strict',
+        ask: 'How strict is your line?',
+        askAbout: "How strict is {them}'s line?",
+        minLabel: 'Flexible',
+        maxLabel: 'Absolute',
+      },
+      {
+        kind: 'choice',
+        id: 'where',
+        ask: 'Where is it?',
+        askAbout: 'Where is it for {them}?',
+        options: [
+          { id: 'unsure', label: 'Hard to draw', neutral: true },
+          { id: 'secrecy', label: 'Anything hidden from me' },
+          { id: 'physical', label: 'Anything physical' },
+          { id: 'emotional', label: 'Where the closeness goes' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'q-money-for',
+    category: 'values',
+    renewable: false,
+    prompt: 'What is money actually for?',
+    facets: [
+      {
+        kind: 'scale',
+        id: 'spend',
+        ask: 'Spend it or hold it?',
+        askAbout: 'Does {them} spend it or hold it?',
+        minLabel: 'Hold it',
+        maxLabel: 'Use it now',
+      },
+      {
+        kind: 'choice',
+        id: 'purpose',
+        ask: "What's it mainly for?",
+        askAbout: "What's it mainly for, to {them}?",
+        options: [
+          { id: 'unsure', label: 'Never thought it through', neutral: true },
+          { id: 'safety', label: 'Safety' },
+          { id: 'freedom', label: 'Freedom to choose' },
+          { id: 'experience', label: "Things we'll remember" },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'q-truth-or-kind',
+    category: 'values',
+    renewable: false,
+    prompt: 'Truth, or kindness?',
+    facets: [
+      {
+        kind: 'scale',
+        id: 'lean',
+        ask: 'Which do you default to?',
+        askAbout: 'Which does {them} default to?',
+        minLabel: 'Kindness',
+        maxLabel: 'Truth',
+      },
+      {
+        kind: 'choice',
+        id: 'when',
+        ask: 'When do you break your own rule?',
+        askAbout: 'When does {them} break their own rule?',
+        options: [
+          { id: 'never', label: "I don't, really", neutral: true },
+          { id: 'protect', label: 'When it would hurt someone' },
+          { id: 'stakes', label: 'When it actually matters' },
+          { id: 'tired', label: "When I'm too tired to soften it" },
+        ],
+      },
+    ],
+  },
 ]

@@ -361,4 +361,60 @@ export const INTIMACY: Question[] = [
       },
     ],
   },
+  {
+    id: 'q-say-out-loud',
+    category: 'intimacy',
+    renewable: false,
+    prompt: 'What would you say out loud if you knew it landed well?',
+    facets: [
+      {
+        kind: 'scale',
+        id: 'nerve',
+        ask: 'How much nerve would it take?',
+        askAbout: 'How much nerve would it take {them}?',
+        minLabel: 'None',
+        maxLabel: 'A lot',
+      },
+      {
+        kind: 'choice',
+        id: 'kind',
+        ask: 'What kind of thing?',
+        askAbout: 'What kind of thing, for {them}?',
+        options: [
+          { id: 'nothing', label: 'Nothing held back', neutral: true },
+          { id: 'want', label: 'Something I want done to me' },
+          { id: 'do', label: 'Something I want to do' },
+          { id: 'idea', label: 'An idea, not an act' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'q-pace-intensity',
+    category: 'intimacy',
+    renewable: false,
+    prompt: 'Slow, or not slow?',
+    facets: [
+      {
+        kind: 'scale',
+        id: 'pace',
+        ask: 'Where do you want the pace?',
+        askAbout: 'Where does {them} want the pace?',
+        minLabel: 'Slow and drawn out',
+        maxLabel: 'Urgent',
+      },
+      {
+        kind: 'choice',
+        id: 'vary',
+        ask: 'How much should it vary?',
+        askAbout: 'How much should it vary for {them}?',
+        options: [
+          { id: 'any', label: 'No preference', neutral: true },
+          { id: 'same', label: "I like knowing what's coming" },
+          { id: 'mix', label: 'Both, depending' },
+          { id: 'surprise', label: 'Surprise me' },
+        ],
+      },
+    ],
+  },
 ]
