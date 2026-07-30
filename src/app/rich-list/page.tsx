@@ -11,13 +11,19 @@ export const dynamic = 'force-dynamic'
 /**
  * The Rich List.
  *
- * Ranks couples on tender EARNED, never held. Earned is payouts and streak
- * bonuses only, so passing tender between two wallets or refunding a purchase
- * moves nobody. Ranking on balance would have rewarded hoarding and made
- * spending on each other cost you position — the opposite of the point.
+ * The copy here sells the list rather than explaining it. It used to open with
+ * the scoring rules — earned not held, transfers excluded — which is true, still
+ * true, and the least persuasive thing to tell somebody who is not on it. Those
+ * rules live in 0008_rich_list.sql where they belong; this page's job is to make
+ * a couple want their names on it.
  *
- * Appearing takes both partners opting in, and the page says so plainly rather
- * than leaving anyone to discover their name went public.
+ * The mechanism underneath is unchanged: ranked on tender EARNED, so spending on
+ * each other costs no position and passing tender back and forth earns none.
+ *
+ * One line of mechanics survives on purpose. Appearing publicly does announce
+ * that two named people are a couple, and nobody should find that out afterwards
+ * — so consent is still stated, just after the reason to want it rather than
+ * instead of it.
  */
 export default async function RichListPage({
   searchParams,
@@ -45,10 +51,10 @@ export default async function RichListPage({
 
         <div>
           <h1 className="t-question text-ink">The Rich List</h1>
-          <p className="t-body mt-2 text-ink-muted">
-            Couples ranked by tender <em>earned</em> — not held. Spending on each
-            other costs you nothing here, and passing tender back and forth earns
-            you nothing either.
+          <p className="t-body mt-2 max-w-[30rem] text-ink-muted">
+            The couples who actually know each other. Not the ones who say they
+            do — the ones who guessed right, day after day, and have the number to
+            prove it.
           </p>
         </div>
 
@@ -57,8 +63,8 @@ export default async function RichListPage({
         {list.rows.length === 0 ? (
           <Card>
             <p className="t-body text-ink-muted">
-              Nobody&rsquo;s on it yet. The list fills itself in as couples opt in
-              and start earning — there&rsquo;s nothing to wait for beyond that.
+              Nobody&rsquo;s here yet. Whoever comes first gets the top of an empty
+              list and everyone after them arrives looking up at it.
             </p>
           </Card>
         ) : (
@@ -151,8 +157,6 @@ function Standing({
   standing: import('@/lib/session').RichListStanding | null
   window: RichListWindow
 }) {
-  const period = window === 'week' ? 'in the last seven days' : 'yet'
-
   if (!standing) {
     return (
       <p className="t-small text-ink-faint">
@@ -161,17 +165,54 @@ function Standing({
     )
   }
 
+  const period = window === 'week' ? 'this week' : 'so far'
+
+  /**
+   * Not on it. Lead with the position they already hold and cannot see.
+   *
+   * The page used to explain the scoring rules here, which is the least
+   * persuasive thing it could say to somebody who has not joined. What persuades
+   * is a real number: they have earned this much, and it would put them there.
+   *
+   * The consent line stays, shortened. Appearing publicly does say that two named
+   * people are a couple, and nobody should discover that after the fact — but it
+   * belongs after the reason to want it, not instead of it.
+   */
   if (!standing.optedIn) {
     return (
       <div className="stack" style={{ ['--stack-gap' as string]: '0.75rem' }}>
-        <p className="t-label">You&rsquo;re not on it</p>
-        <p className="t-body text-ink-muted">
-          Joining is off by default, deliberately — a public list showing two
-          first names says publicly that those two people are a couple. You choose
-          whether to appear and what to be called, in Settings.
+        <p className="t-label">What you&rsquo;re missing</p>
+
+        {standing.earned > 0 ? (
+          <>
+            <h2 className="t-question text-ink">
+              You&rsquo;d be number {standing.wouldRank}.
+            </h2>
+            <p className="t-body text-ink-muted">
+              You&rsquo;ve earned{' '}
+              <span className="tabular text-ink">{tender(standing.earned)}</span>{' '}
+              {period} and nobody can see it. Every couple above you is on this
+              list. You are not on it.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 className="t-question text-ink">
+              There&rsquo;s a place here with your name on it.
+            </h2>
+            <p className="t-body text-ink-muted">
+              Answer today&rsquo;s question and you start earning your way up it.
+            </p>
+          </>
+        )}
+
+        <p className="t-small text-ink-faint">
+          It takes both of you, and you choose what you&rsquo;re called — your
+          name, an initial, or something nobody would guess.
         </p>
+
         <Link href="/settings" className="block">
-          <Button variant="quiet">Decide in Settings</Button>
+          <Button>Put us on the list</Button>
         </Link>
       </div>
     )
@@ -180,11 +221,16 @@ function Standing({
   if (!standing.partnerOptedIn) {
     return (
       <div className="stack" style={{ ['--stack-gap' as string]: '0.75rem' }}>
-        <p className="t-label">Waiting on your person</p>
+        <p className="t-label">One yes short</p>
+        <h2 className="t-question text-ink">
+          {standing.earned > 0
+            ? `Number ${standing.wouldRank}, the moment they agree.`
+            : 'You said yes. They haven’t.'}
+        </h2>
         <p className="t-body text-ink-muted">
-          You&rsquo;ve opted in, they haven&rsquo;t. It takes both of you, because
-          appearing here reveals something about them too — so it isn&rsquo;t
-          yours alone to decide.
+          You&rsquo;re in — they haven&rsquo;t said yes yet, so neither of you
+          shows. It has to be both, because the list carries both your names.
+          Worth asking them tonight.
         </p>
       </div>
     )
@@ -194,21 +240,32 @@ function Standing({
     return (
       <div className="stack" style={{ ['--stack-gap' as string]: '0.75rem' }}>
         <p className="t-label">You&rsquo;re in</p>
+        <h2 className="t-question text-ink">One question from appearing.</h2>
         <p className="t-body text-ink-muted">
-          Both of you are opted in. Nothing earned {period} — answer today&rsquo;s
-          question and you&rsquo;ll appear.
+          Both of you are on. Nothing earned {period} — answer today&rsquo;s
+          question and your names go up.
         </p>
       </div>
     )
   }
 
+  const ahead = standing.rank - 1
+
   return (
     <div className="stack" style={{ ['--stack-gap' as string]: '0.75rem' }}>
       <p className="t-label">Where you stand</p>
-      <p className="t-body text-ink">
-        Number <span className="tabular">{standing.rank}</span>, on{' '}
-        <span className="tabular">{tender(standing.earned)}</span> earned
-        {window === 'week' ? ' this week' : ''}.
+      <h2 className="t-question text-ink">
+        Number <span className="tabular">{standing.rank}</span>
+        {standing.listedCouples > 1 ? ` of ${standing.listedCouples}` : ''}.
+      </h2>
+      <p className="t-body text-ink-muted">
+        <span className="tabular text-ink">{tender(standing.earned)}</span> earned{' '}
+        {period}.{' '}
+        {ahead === 0
+          ? 'Nobody is ahead of you. Somebody is trying to be.'
+          : ahead === 1
+            ? 'One couple ahead of you.'
+            : `${ahead} couples ahead of you.`}
       </p>
     </div>
   )

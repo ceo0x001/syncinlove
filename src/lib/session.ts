@@ -618,7 +618,11 @@ export interface RichListStanding {
   partnerOptedIn: boolean
   /** Null when the couple isn't on this window's board at all. */
   rank: number | null
+  /** Earned regardless of opting in, so somebody off the list sees the real number. */
   earned: number
+  /** Where they would sit if they joined right now. The whole persuasion. */
+  wouldRank: number
+  listedCouples: number
 }
 
 export interface RichList {
@@ -667,6 +671,8 @@ export async function loadRichList(
     partner_opted_in?: boolean
     rank?: number | null
     earned?: number
+    would_rank?: number
+    listed_couples?: number
   } | null
 
   return {
@@ -678,6 +684,8 @@ export async function loadRichList(
           partnerOptedIn: raw.partner_opted_in === true,
           rank: raw.rank ?? null,
           earned: Number(raw.earned ?? 0),
+          wouldRank: Number(raw.would_rank ?? 1),
+          listedCouples: Number(raw.listed_couples ?? 0),
         }
       : null,
   }
