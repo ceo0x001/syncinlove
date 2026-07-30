@@ -4,7 +4,7 @@ import { MenuEditor } from '@/components/menu-editor'
 import { PurchaseList } from '@/components/purchase-list'
 import { SetupNotice } from '@/components/setup-notice'
 import { TheirMenu } from '@/components/their-menu'
-import { Button, Rule, Screen, Wordmark } from '@/components/ui'
+import { Button, NavLink, Rule, Screen, Wordmark } from '@/components/ui'
 import { isConfigured } from '@/lib/supabase/env'
 import { loadHome } from '@/lib/session'
 import { daysOfSyncing, formatTender, tender } from '@/lib/tender'
@@ -31,12 +31,10 @@ export default async function MenuPage() {
 
   return (
     <Screen>
-      <div className="stack" style={{ ['--stack-gap' as string]: '2.5rem' }}>
+      <div className="stack stagger" style={{ ['--stack-gap' as string]: '2.5rem' }}>
         <header className="flex items-baseline justify-between gap-4">
           <Wordmark />
-          <Link href="/" className="t-small text-ink-muted hover:text-ink">
-            Today
-          </Link>
+          <NavLink href="/">Today</NavLink>
         </header>
 
         <Wallets economy={economy} myName={home.me.firstName} theirName={them} />

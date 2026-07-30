@@ -9,7 +9,7 @@ import {
   ProfileForm,
   SignOutForm,
 } from '@/components/settings-forms'
-import { Button, Card, Rule, Screen, Wordmark } from '@/components/ui'
+import { Button, Card, NavLink, Rule, Screen, Wordmark } from '@/components/ui'
 import { isConfigured } from '@/lib/supabase/env'
 import { loadHome } from '@/lib/session'
 
@@ -26,12 +26,10 @@ export default async function SettingsPage() {
 
   return (
     <Screen>
-      <div className="stack" style={{ ['--stack-gap' as string]: '2.5rem' }}>
+      <div className="stack stagger" style={{ ['--stack-gap' as string]: '2.5rem' }}>
         <header className="flex items-baseline justify-between gap-4">
           <Wordmark />
-          <Link href="/" className="t-small text-ink-muted hover:text-ink">
-            Today
-          </Link>
+          <NavLink href="/">Today</NavLink>
         </header>
 
         <h1 className="t-question text-ink">You</h1>

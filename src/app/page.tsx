@@ -4,7 +4,7 @@ import { EntryForm } from '@/components/entry-form'
 import { InvitePanel } from '@/components/invite-panel'
 import { SealedPreview } from '@/components/sealed-preview'
 import { SetupNotice } from '@/components/setup-notice'
-import { Button, Card, Rule, Screen, Wordmark } from '@/components/ui'
+import { Button, Card, NavLink, Rule, Screen, Wordmark } from '@/components/ui'
 import { isConfigured } from '@/lib/supabase/env'
 import { formatCountdown } from '@/lib/sync/day'
 import { loadHome, type Economy, type HomeState } from '@/lib/session'
@@ -137,28 +137,26 @@ function Hub({ home }: { home: HomeState }) {
 
   return (
     <Screen>
-      <div className="stack" style={{ ['--stack-gap' as string]: '2rem' }}>
-        <header className="flex items-baseline justify-between gap-4">
+      {/* Staggered so the screen assembles rather than appearing all at once —
+          the same grammar as the reveal, at a fraction of the intensity. */}
+      <div className="stack stagger" style={{ ['--stack-gap' as string]: '2rem' }}>
+        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <Wordmark />
-          <span className="flex items-baseline gap-3">
+          <span className="flex flex-wrap items-center gap-2">
+            {/* Not a chip, and not a link: tapping a streak does nothing, so it
+                must not look like the things beside it that do. */}
             {streak > 0 ? (
-              <span className="t-label">
+              <span className="t-label px-1 text-ink-faint">
                 {streak} day{streak === 1 ? '' : 's'}
               </span>
             ) : null}
             {economy && partner ? (
-              <Link href="/menu" className="t-label tabular hover:text-ink">
-                {tender(economy.mine.balance)}
-              </Link>
+              <NavLink href="/menu" tone="accent">
+                <span className="tabular">{tender(economy.mine.balance)}</span>
+              </NavLink>
             ) : null}
-            {partner ? (
-              <Link href="/rich-list" className="t-label hover:text-ink">
-                List
-              </Link>
-            ) : null}
-            <Link href="/settings" className="t-label hover:text-ink">
-              You
-            </Link>
+            {partner ? <NavLink href="/rich-list">List</NavLink> : null}
+            <NavLink href="/settings">You</NavLink>
           </span>
         </header>
 

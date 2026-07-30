@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { SetupNotice } from '@/components/setup-notice'
-import { Button, Rule, Screen, Wordmark } from '@/components/ui'
+import { Button, NavLink, Rule, Screen, Wordmark } from '@/components/ui'
 import { Vault, type OpenLetter, type SealedForMe } from '@/components/vault'
 import { isConfigured } from '@/lib/supabase/env'
 import { createClient } from '@/lib/supabase/server'
@@ -50,12 +50,10 @@ export default async function VaultPage() {
 
   return (
     <Screen>
-      <div className="stack" style={{ ['--stack-gap' as string]: '2.5rem' }}>
+      <div className="stack stagger" style={{ ['--stack-gap' as string]: '2.5rem' }}>
         <header className="flex items-baseline justify-between gap-4">
           <Wordmark />
-          <Link href="/" className="t-small text-ink-muted hover:text-ink">
-            Today
-          </Link>
+          <NavLink href="/">Today</NavLink>
         </header>
 
         <div>

@@ -82,6 +82,48 @@ export function Wordmark({
   )
 }
 
+/**
+ * Header navigation.
+ *
+ * These used to be bare `t-label` text, which made them indistinguishable from
+ * the streak counter sitting beside them — same size, same weight, same colour,
+ * and the only thing marking them as tappable was a hover state that does not
+ * exist on a phone. So nobody could tell "List" and "You" were buttons.
+ *
+ * Now they are chips with an edge and a surface, a 44px touch target, and a
+ * press state. The rule the header follows: a chip is somewhere you can go,
+ * plain text is something you are being told. The streak stays plain text
+ * precisely because tapping it does nothing.
+ */
+export function NavLink({
+  href,
+  children,
+  tone = 'default',
+}: {
+  href: string
+  children: ReactNode
+  tone?: 'default' | 'accent'
+}) {
+  const tones = {
+    default: 'border-hairline bg-paper-raised text-ink-muted hover:text-ink',
+    // Used for the balance, so tender reads as the currency it is rather than
+    // as another piece of navigation.
+    accent: 'border-accent/35 bg-accent-wash text-ink hover:border-accent/60',
+  }
+
+  return (
+    <Link
+      href={href}
+      className={
+        'press t-label inline-flex min-h-[2.75rem] items-center rounded-full border px-3.5 ' +
+        tones[tone]
+      }
+    >
+      {children}
+    </Link>
+  )
+}
+
 export function Button({
   children,
   variant = 'primary',

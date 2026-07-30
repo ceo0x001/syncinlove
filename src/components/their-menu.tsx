@@ -38,7 +38,7 @@ export function TheirMenu({
   }
 
   return (
-    <div className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
+    <div className="stack stagger" style={{ ['--stack-gap' as string]: '1rem' }}>
       {!canSpend ? (
         <Notice>
           {needsEmail
@@ -58,7 +58,7 @@ export function TheirMenu({
             // Your own menu is coral on white. The two directions of the economy
             // looked identical before, which made it easy to misread which side
             // of a price you were on.
-            className="flex items-start justify-between gap-4 rounded-[0.75rem] border border-hairline border-l-[3px] border-l-accent-2 bg-paper-sunken p-4"
+            className="lift flex items-start justify-between gap-4 rounded-[0.75rem] border border-hairline border-l-[3px] border-l-accent-2 bg-paper-sunken p-4"
           >
             <div className="min-w-0">
               <p className="t-title break-words text-ink">{item.title}</p>

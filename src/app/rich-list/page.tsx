@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { SetupNotice } from '@/components/setup-notice'
-import { Button, Card, Rule, Screen, Wordmark } from '@/components/ui'
+import { Button, Card, NavLink, Rule, Screen, Wordmark } from '@/components/ui'
 import { isConfigured } from '@/lib/supabase/env'
 import { loadHome, loadRichList, type RichListWindow } from '@/lib/session'
 import { formatTender, tender } from '@/lib/tender'
@@ -37,12 +37,10 @@ export default async function RichListPage({
 
   return (
     <Screen>
-      <div className="stack" style={{ ['--stack-gap' as string]: '2.5rem' }}>
+      <div className="stack stagger" style={{ ['--stack-gap' as string]: '2.5rem' }}>
         <header className="flex items-baseline justify-between gap-4">
           <Wordmark />
-          <Link href="/" className="t-small text-ink-muted hover:text-ink">
-            Today
-          </Link>
+          <NavLink href="/">Today</NavLink>
         </header>
 
         <div>
@@ -64,12 +62,15 @@ export default async function RichListPage({
             </p>
           </Card>
         ) : (
-          <ol className="stack" style={{ ['--stack-gap' as string]: '0.625rem' }}>
+          <ol
+            className="stack stagger"
+            style={{ ['--stack-gap' as string]: '0.625rem' }}
+          >
             {list.rows.map((row) => (
               <li
                 key={row.rank}
                 className={
-                  'flex items-baseline gap-4 rounded-[0.75rem] border p-4 ' +
+                  'lift flex items-baseline gap-4 rounded-[0.75rem] border p-4 ' +
                   (row.isMine
                     ? 'border-accent bg-accent-wash'
                     : 'border-hairline bg-paper-raised')
@@ -122,10 +123,10 @@ function WindowTabs({ current }: { current: RichListWindow }) {
           key={tab.key}
           href={`/rich-list?window=${tab.key}`}
           className={
-            't-small rounded-full px-4 py-2 ' +
+            'press t-small inline-flex min-h-[2.75rem] items-center rounded-full border px-4 ' +
             (current === tab.key
-              ? 'bg-accent-wash text-ink'
-              : 'text-ink-muted hover:text-ink')
+              ? 'border-accent/35 bg-accent-wash text-ink'
+              : 'border-hairline bg-paper-raised text-ink-muted hover:text-ink')
           }
         >
           {tab.label}
