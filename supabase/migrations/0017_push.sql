@@ -255,9 +255,17 @@ alter table public.private_config enable row level security;
 -- invisible to every API caller. The revokes are belt and braces.
 revoke all on table public.private_config from anon, authenticated;
 
+-- www, not the apex.
+--
+-- syncin.love 308-redirects to www.syncin.love, and net.http_post does not follow
+-- redirects — its signature has no option to. Pointed at the apex, every relay call
+-- would have received a 308 and stopped there: push would have reported itself
+-- configured, the nudge would have been claimed and marked sent, and not one
+-- notification would ever have arrived. Silent, and indistinguishable from "nobody
+-- has subscribed yet".
 insert into public.private_config (name, value)
 values
-  ('push_relay_url', 'https://syncin.love/api/push'),
+  ('push_relay_url', 'https://www.syncin.love/api/push'),
   ('push_relay_secret', 'PASTE_A_LONG_RANDOM_STRING')
 on conflict (name) do nothing;
 

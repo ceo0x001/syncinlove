@@ -160,14 +160,19 @@ export async function POST(request: Request) {
  * attacker who could set it arbitrarily could turn one of our own notifications
  * into a link to their page, which is a phishing primitive with our name on it.
  */
+const HOME = 'https://www.syncin.love'
+
+/** Both spellings of our own host. The apex 308s to www, so payloads may use either. */
+const OURS = new Set(['syncin.love', 'www.syncin.love'])
+
 function safeUrl(raw: string | undefined): string {
-  if (!raw) return 'https://syncin.love'
+  if (!raw) return HOME
   try {
     const parsed = new URL(raw)
-    if (parsed.hostname !== 'syncin.love') return 'https://syncin.love'
+    if (!OURS.has(parsed.hostname)) return HOME
     return parsed.href
   } catch {
-    return 'https://syncin.love'
+    return HOME
   }
 }
 
