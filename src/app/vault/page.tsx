@@ -45,8 +45,11 @@ export default async function VaultPage() {
   const sealedForMe = (sealedRes.data ?? []) as SealedForMe[]
   const them = home.partner?.firstName ?? 'your partner'
 
-  // Tomorrow in the pair's timezone — the same clock seal_letter validates on.
-  const minUnlockOn = addDays(localParts(new Date(), home.pair.timeZone).date, 1)
+  // The pair's clock, not the viewer's — the same one seal_letter and the letters
+  // policy validate against. Today decides whether a letter has been delivered;
+  // tomorrow is the earliest date the picker may offer.
+  const today = localParts(new Date(), home.pair.timeZone).date
+  const minUnlockOn = addDays(today, 1)
 
   return (
     <Screen>
@@ -72,6 +75,7 @@ export default async function VaultPage() {
           letters={letters}
           partnerFirstName={them}
           canSeal={!home.me.isAnonymous}
+          today={today}
           minUnlockOn={minUnlockOn}
         />
 

@@ -24,11 +24,6 @@ import { Button, Card, Notice, TextField } from './ui'
  * it arrives straight off PostgREST without a mapping layer. `unlock_on` and
  * `days_away` are both null when the sender chose to hide the date — that null
  * is the surprise working, not missing data.
- *
- * `sealed_for_me()` also returns `from_name`; it is deliberately absent here.
- * The sender's name is nulled out when the date is hidden, whereas the component
- * already knows `partnerFirstName` unconditionally — so from_name exists for the
- * notification email, which has no other way to get it.
  */
 export interface SealedForMe {
   letter_id: string
@@ -60,6 +55,7 @@ export function Vault({
   letters,
   partnerFirstName,
   canSeal,
+  today,
   minUnlockOn,
 }: {
   open: boolean
@@ -68,6 +64,14 @@ export function Vault({
   letters: OpenLetter[]
   partnerFirstName: string
   canSeal: boolean
+  /**
+   * Pair-local today, for deciding whether a letter's date has arrived.
+   *
+   * Server-computed in the pair's timezone for the same reason minUnlockOn is: the
+   * letters policy compares against the pair's clock, so a card using the viewer's
+   * own timezone would call a letter delivered hours before the database agreed.
+   */
+  today: string
   /**
    * Earliest selectable date, computed server-side in the PAIR's timezone.
    *
@@ -104,7 +108,12 @@ export function Vault({
         <div className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
           <p className="t-label">Open</p>
           {letters.map((letter) => (
-            <LetterCard key={letter.id} letter={letter} from={partnerFirstName} />
+            <LetterCard
+              key={letter.id}
+              letter={letter}
+              from={partnerFirstName}
+              today={today}
+            />
           ))}
         </div>
       ) : null}
@@ -217,15 +226,50 @@ function SealedRow({ letter, from }: { letter: SealedForMe; from: string }) {
   )
 }
 
-function LetterCard({ letter, from }: { letter: OpenLetter; from: string }) {
+/**
+ * What a letter says about itself.
+ *
+ * For a letter you RECEIVED this is just who it is from and when it opened.
+ *
+ * For one you WROTE it now reports whether it has been read, which it did not
+ * before — and that gap was a real inconsistency rather than a missing nicety. The
+ * letter_opened notification already emails the sender the moment their letter is
+ * read, so somebody would get told by email and then find the vault silent on it.
+ * Worse for anybody who has letter emails switched off: the app knew and never
+ * said.
+ *
+ * It discloses nothing the notification does not. The one thing that stays
+ * deliberately unsaid is refusal: a destroyed letter is hard-deleted, so it simply
+ * stops appearing here, and there is no state for "they refused this". That the
+ * absence of a row is itself inferable by an attentive sender is a property of the
+ * hard delete, not of this label.
+ */
+function senderStatus(letter: OpenLetter, today: string): string {
+  // ISO dates compare correctly as strings, which is why unlock_on is carried
+  // around as a plain 'YYYY-MM-DD' rather than parsed into a Date here.
+  if (letter.unlockOn > today) return `Sealed until ${formatDate(letter.unlockOn)}`
+  if (letter.opened) return 'They opened it'
+  return 'Waiting to be opened'
+}
+
+function LetterCard({
+  letter,
+  from,
+  today,
+}: {
+  letter: OpenLetter
+  from: string
+  today: string
+}) {
   const [showing, setShowing] = useState(letter.opened || letter.fromMe)
   const [pending, startTransition] = useTransition()
 
   return (
     <Card>
       <p className="t-label mb-2">
-        {letter.fromMe ? `You wrote this` : `From ${from}`} ·{' '}
-        {formatDate(letter.unlockOn)}
+        {letter.fromMe
+          ? `You wrote this · ${senderStatus(letter, today)}`
+          : `From ${from} · ${formatDate(letter.unlockOn)}`}
       </p>
       <p className="t-title text-ink">{letter.title}</p>
 

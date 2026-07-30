@@ -306,6 +306,13 @@ grant execute on function public.update_notify_prefs(boolean, boolean, boolean, 
 -- sealed_for_me already returns a count and, when the sender allowed it, the
 -- date. It gains days_away so the vault can say "in 9 days" rather than making
 -- somebody work out a date difference in their head.
+--
+-- It deliberately does NOT return the sender's name. An earlier draft did, on the
+-- reasoning that the notification needed it — it does not: send_nudges reads
+-- partner_first_name from nudge_queue. And for the vault it would have been
+-- strictly worse than what the page already has, because it has to be nulled when
+-- the sender hides the date, whereas the partner's name is known unconditionally.
+-- A column nothing reads is a column that quietly rots.
 -- ----------------------------------------------------------------------------
 
 drop function if exists public.sealed_for_me();
@@ -314,8 +321,7 @@ create function public.sealed_for_me()
 returns table (
   letter_id  uuid,
   unlock_on  date,
-  days_away  int,
-  from_name  text
+  days_away  int
 )
 language plpgsql
 security definer
@@ -340,10 +346,8 @@ begin
     -- The sender's choice. Hidden stays hidden: a null date here is the surprise
     -- working, not missing data.
     case when l.date_visible then l.unlock_on else null end,
-    case when l.date_visible then (l.unlock_on - v_today)::int else null end,
-    case when l.date_visible then pr.first_name else null end
+    case when l.date_visible then (l.unlock_on - v_today)::int else null end
   from public.letters l
-  join public.profiles pr on pr.id = l.sender_id
   where l.pair_id = v_pair
     and l.recipient_id = v_user
     and l.opened_at is null
