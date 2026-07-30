@@ -155,6 +155,26 @@ export interface HomeState {
   economy: Economy | null
 }
 
+/**
+ * Columns that must exist for the app to know who you are.
+ *
+ * Kept apart from the rest for a reason that has now cost two outages. A
+ * PostgREST select is all-or-nothing: name one column that does not exist and the
+ * whole row comes back as an error, so `first_name` is lost along with it. A null
+ * first_name is what the home page reads as "no account yet", and it answers with
+ * the signup form — which is indistinguishable from a genuine new visitor.
+ *
+ * So deploying code that references a column before its migration has run does
+ * not degrade a feature, it locks every existing user out of their own account
+ * and shows them a signup form. That happened with list_display, and then again
+ * with the notify_* columns.
+ */
+const PROFILE_CORE = 'first_name'
+
+/** Everything else. Nice to have, and never allowed to take the core down. */
+const PROFILE_EXTRAS =
+  'list_display, list_alias, list_opt_in, notify_reminders, notify_partner, notify_requests'
+
 /** The signed-in user, or null. Never throws on an absent session. */
 export async function getMe(): Promise<Me | null> {
   const supabase = await createClient()
@@ -164,23 +184,38 @@ export async function getMe(): Promise<Me | null> {
 
   if (!user) return null
 
-  const { data: profile, error } = await supabase
+  const attempt = await supabase
     .from('profiles')
-    .select('first_name, list_display, list_alias, list_opt_in, notify_reminders, notify_partner, notify_requests')
+    .select(`${PROFILE_CORE}, ${PROFILE_EXTRAS}`)
     .eq('id', user.id)
     .maybeSingle()
 
-  // A failed read here used to coalesce straight to firstName: null, which the
-  // home page reads as "no account yet" and answers with the signup form. That
-  // is indistinguishable from a genuine new visitor, so a schema mistake —
-  // selecting a column a migration hadn't added yet — silently bounced every
-  // signup back to the form with no error anywhere. Say it out loud instead.
+  let profile = attempt.data
+  const error = attempt.error
+
   if (error) {
     console.error('[getMe] could not read the profile:', {
       userId: user.id,
       code: error.code,
       message: error.message,
     })
+
+    // 42703 is "column does not exist" — a migration that has not been applied
+    // yet. Retry with the core alone so the person stays signed in and merely
+    // loses whatever the missing column powered. Every field below already has a
+    // safe default, so this degrades instead of collapsing.
+    if (error.code === '42703') {
+      const retry = await supabase
+        .from('profiles')
+        .select(PROFILE_CORE)
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (!retry.error) {
+        console.warn('[getMe] falling back to core columns — a migration is behind')
+        profile = retry.data as typeof profile
+      }
+    }
   }
 
   return {
