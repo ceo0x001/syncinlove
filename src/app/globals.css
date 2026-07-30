@@ -476,6 +476,154 @@ body::before {
   animation: pulse-once var(--dur-slow) var(--ease-out-expo) both;
 }
 
+/* ---------------------------------------------------------------------------
+   "How Sync works"
+
+   A native <dialog>, so focus trapping, Escape and the inert backdrop come from
+   the platform instead of from three effects that each get an edge case wrong.
+   The cost is that <dialog> resets almost nothing for you: it arrives with a UA
+   margin, a border, a max-height of calc(100% - 6px) and its own idea of what
+   centring means, so all of that is stated here rather than fought with.
+
+   Two layouts. On a phone it is a sheet pinned to the bottom, because that is
+   where a thumb is and because a centred card on a 375px screen leaves useless
+   margins on all four sides. Past 640px it becomes a centred card.
+   --------------------------------------------------------------------------- */
+
+.how-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  /* 44px is the floor for a touch target, and this one sits in the corner of the
+     screen where taps are least accurate. */
+  min-height: 2.75rem;
+  padding: 0 0.95rem;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--accent-wash);
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .how-trigger:hover {
+    background: var(--paper-raised);
+    border-color: var(--accent);
+  }
+}
+
+/* The arrow drifts toward the button it is pointing at. Small amplitude on
+   purpose: this is a hint sitting next to a heading, and anything livelier reads
+   as an advert for itself. Suppressed under reduced motion by the global rule at
+   the end of this file. */
+@keyframes arrow-nudge {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(1px, -3px, 0); }
+}
+
+.how-arrow {
+  animation: arrow-nudge 2.4s var(--ease-in-out-soft) infinite;
+}
+
+.how-dialog {
+  /* The UA stylesheet's own box, removed. Left in place this shows as a white
+     rectangle behind the panel with a 1px border and a stray margin. */
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  max-width: none;
+  max-height: none;
+  width: 100%;
+  height: 100%;
+  /* dialog is display:none until open; :modal handles the rest. */
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.how-dialog:not([open]) {
+  display: none;
+}
+
+.how-dialog::backdrop {
+  background: rgb(15 23 42 / 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.how-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* Not 100%: leaving the top of the page visible is what makes this read as a
+     panel over the signup screen rather than as a new page. */
+  max-height: 88vh;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-bottom: 0;
+  border-radius: 1.25rem 1.25rem 0 0;
+  box-shadow: 0 -8px 40px rgb(15 23 42 / 0.18);
+  animation: sheet-in var(--dur-slow) var(--ease-out-expo) both;
+}
+
+@keyframes sheet-in {
+  from { transform: translate3d(0, 14px, 0); opacity: 0; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+
+.how-head,
+.how-foot {
+  flex-shrink: 0;
+  padding: 1.125rem 1.25rem;
+  background: var(--paper);
+}
+
+.how-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 1.25rem 1.25rem 0 0;
+}
+
+/* The scrolling part, and the only part that scrolls. -webkit-overscroll stops
+   an iOS drag at the end of the list from scrolling the page behind. */
+.how-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 1.25rem;
+}
+
+.how-foot {
+  border-top: 1px solid var(--hairline);
+  /* Clear of the iOS home indicator, which otherwise sits on top of the button. */
+  padding-bottom: max(1.125rem, env(safe-area-inset-bottom));
+}
+
+@media (min-width: 640px) {
+  .how-dialog {
+    align-items: center;
+  }
+
+  .how-panel {
+    max-width: 34rem;
+    max-height: 82vh;
+    border-bottom: 1px solid var(--hairline);
+    border-radius: 1.25rem;
+    box-shadow: 0 12px 48px rgb(15 23 42 / 0.22);
+  }
+
+  .how-head {
+    border-radius: 1.25rem 1.25rem 0 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ClaimEmail } from '@/components/claim-email'
 import { EntryForm } from '@/components/entry-form'
+import { HowItWorks } from '@/components/how-it-works'
 import { InvitePanel } from '@/components/invite-panel'
 import { SealedPreview } from '@/components/sealed-preview'
 import { SetupNotice } from '@/components/setup-notice'
@@ -84,7 +85,21 @@ function Welcome() {
   return (
     <Screen>
       <div className="stack" style={{ ['--stack-gap' as string]: '2.5rem' }}>
-        <Wordmark size="lg" />
+        {/*
+          The wordmark used to sit alone here. It now shares a row with the way in
+          to the explanation, because people were arriving, reading a promise, and
+          having nowhere to go to find out what the promise involved.
+
+          items-start rather than items-center: the lg wordmark is a two-line
+          lockup and centring against it drops the button into the middle of the
+          screen's left edge, away from the corner where it is being looked for.
+        */}
+        <header className="flex items-start justify-between gap-3">
+          <span className="shrink-0">
+            <Wordmark size="lg" />
+          </span>
+          <HowItWorks />
+        </header>
 
         <div className="stack" style={{ ['--stack-gap' as string]: '1.25rem' }}>
           <h1 className="t-question text-ink">Find out if they really know you.</h1>
@@ -368,6 +383,23 @@ function Hub({ home }: { home: HomeState }) {
               {today ? `Tomorrow’s question in ${formatCountdown(secondsToRollover)}.` : null}
             </p>
           ) : null}
+          {/*
+            Here rather than in the header nav. That row already ran out of room at
+            375px once — it is why the balance chip hides below 480px — and a fifth
+            chip would put it straight back onto two lines. Somebody who needs the
+            explanation on day nine is looking for help, and this is where the
+            other help already is.
+          */}
+          {/*
+            A div, not a <p>. HowItWorks renders its <dialog> as a sibling of the
+            trigger, and <dialog> is flow content — inside a paragraph the HTML
+            parser closes the <p> before it, so the server's markup and React's
+            client tree disagree and hydration warns.
+          */}
+          <div>
+            <HowItWorks variant="quiet" />
+          </div>
+
           <p>
             Something broken, missing, or worth saying?{' '}
             <a
