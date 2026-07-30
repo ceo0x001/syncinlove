@@ -185,42 +185,56 @@ export function AdminAccounts({ accounts }: { accounts: AdminAccount[] }) {
       {note ? <Notice>{note}</Notice> : null}
 
       {/* ---- Filters. Above the bulk bar so these never shift as you select. ---- */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <FilterGroup
+      <div className="flex flex-wrap items-end gap-3">
+        <FilterSelect
           label="Status"
           value={status}
           onChange={setFilter(setStatus)}
           options={[
-            ['all', 'All'],
+            ['all', 'All statuses'],
             ['active', 'Active'],
             ['unconfirmed', 'Unconfirmed'],
             ['suspended', 'Suspended'],
             ['admin', 'Admins'],
-            ['listed', 'On the list'],
+            ['listed', 'On the Rich List'],
           ]}
         />
-        <FilterGroup
+        <FilterSelect
           label="Pairing"
           value={pairing}
           onChange={setFilter(setPairing)}
           options={[
-            ['all', 'All'],
-            ['paired', 'Paired'],
-            ['waiting', 'Waiting'],
-            ['none', 'None'],
+            ['all', 'Any pairing'],
+            ['paired', 'Paired up'],
+            ['waiting', 'Waiting on a partner'],
+            ['none', 'No pairing'],
           ]}
         />
-        <FilterGroup
+        <FilterSelect
           label="Sort"
           value={sort}
           onChange={setFilter(setSort)}
           options={[
-            ['newest', 'Newest'],
-            ['oldest', 'Oldest'],
-            ['days', 'Most days'],
+            ['newest', 'Newest first'],
+            ['oldest', 'Oldest first'],
+            ['days', 'Most days completed'],
             ['active', 'Last answered'],
           ]}
         />
+        {status !== 'all' || pairing !== 'all' || sort !== 'newest' ? (
+          <button
+            type="button"
+            onClick={() => {
+              setStatus('all')
+              setPairing('all')
+              setSort('newest')
+              setPage(0)
+            }}
+            className="press t-small min-h-[2.5rem] text-ink-muted underline decoration-hairline-strong underline-offset-4 hover:text-ink"
+          >
+            Reset
+          </button>
+        ) : null}
       </div>
 
       {filtered.length !== accounts.length ? (
@@ -645,14 +659,14 @@ function Action({
 }
 
 /**
- * A row of chips rather than a <select>.
+ * A labelled dropdown.
  *
- * The states worth filtering by are the point of the screen — unconfirmed,
- * suspended, waiting — and a closed dropdown hides which one is active behind a
- * click. Chips show the current filter and every alternative at once, which is
- * what makes them worth the space here and not elsewhere in the app.
+ * appearance-none with our own chevron rather than the native control, so it
+ * matches the rest of the console — but still a real <select> underneath, which
+ * is what gives keyboard use, screen readers and the mobile wheel picker for
+ * free. Rebuilding it as a listbox would cost all three to gain nothing.
  */
-function FilterGroup<T extends string>({
+function FilterSelect<T extends string>({
   label,
   value,
   onChange,
@@ -664,25 +678,28 @@ function FilterGroup<T extends string>({
   options: [T, string][]
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="t-label text-ink-faint">{label}</span>
-      {options.map(([key, text]) => (
-        <button
-          key={key}
-          type="button"
-          aria-pressed={value === key}
-          onClick={() => onChange(key)}
-          className={
-            'press t-small whitespace-nowrap rounded-full border px-3 py-1.5 ' +
-            (value === key
-              ? 'border-accent/40 bg-accent-wash text-ink'
-              : 'border-hairline bg-paper-raised text-ink-muted hover:text-ink')
-          }
+    <label className="block">
+      <span className="t-label mb-1.5 block">{label}</span>
+      <span className="relative inline-block">
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value as T)}
+          className="t-small min-h-[2.5rem] w-full appearance-none rounded-[0.625rem] border border-hairline bg-paper-raised py-2 pl-3.5 pr-9 text-ink hover:border-hairline-strong focus:border-accent focus:outline-none"
         >
-          {text}
-        </button>
-      ))}
-    </div>
+          {options.map(([key, text]) => (
+            <option key={key} value={key}>
+              {text}
+            </option>
+          ))}
+        </select>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint"
+        >
+          <Chevron open={false} />
+        </span>
+      </span>
+    </label>
   )
 }
 
