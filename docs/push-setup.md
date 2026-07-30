@@ -125,6 +125,60 @@ stop the channel that already worked.
 select public.send_nudges();
 ```
 
+### The relay URL must be www
+
+`syncin.love` 308-redirects to `www.syncin.love`, and `net.http_post` has no
+follow-redirects option — there is nothing in its signature to enable it.
+
+0017 originally configured the apex. Every relay call received the 308 and stopped
+there, while the nudge was still claimed and marked sent. Push reported itself
+configured and healthy and delivered nothing, which looks exactly like "nobody has
+subscribed yet". Fixed in 0017, but a database that ran the earlier version needs:
+
+```sql
+update public.private_config
+set value = 'https://www.syncin.love/api/push'
+where name = 'push_relay_url';
+```
+
+Anything server-side in this project wants the `www` host for the same reason.
+
+### Testing delivery without waiting for a real nudge
+
+`send_nudges()` returning 0 is normal — it means nothing was owed. To test the
+delivery chain on its own, POST a real subscription straight at the relay:
+
+```sql
+select net.http_post(
+  url := (select value from public.private_config where name = 'push_relay_url'),
+  headers := jsonb_build_object(
+    'Content-Type', 'application/json',
+    'X-Sync-Relay-Secret',
+      (select value from public.private_config where name = 'push_relay_secret')
+  ),
+  body := jsonb_build_object(
+    'subscription', jsonb_build_object(
+      'endpoint', s.endpoint,
+      'keys', jsonb_build_object('p256dh', s.p256dh, 'auth', s.auth)
+    ),
+    'payload', jsonb_build_object(
+      'title', 'Sync', 'body', 'If you can see this, push works.',
+      'url', 'https://www.syncin.love', 'tag', 'test'
+    )
+  )
+)
+from public.push_subscriptions s
+where s.failed_at is null;
+```
+
+Then `select status_code, content::text from net._http_response order by created
+desc limit 3;` — 200 with `{"ok":true}` means signed and accepted.
+
+This bypasses `claim_nudge`, so it consumes no nudge and cannot suppress a real one
+later. It exercises everything except queue eligibility: if this lands and a real
+nudge does not, the problem is a confirmed address, a live pairing or a preference —
+not delivery.
+
 ### If nothing arrives
 
 In order of likelihood:
