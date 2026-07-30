@@ -334,6 +334,66 @@ export async function joinWithInvite(token: string): Promise<ActionResult> {
   redirect('/')
 }
 
+/**
+ * Let go of an empty pairing of your own, and accept theirs instead.
+ *
+ * claim_invite already trades away a pairing nobody joined — but only while it has
+ * no answers on it. Answer one question while waiting and the trade is refused, so
+ * somebody who signed up, answered on Monday, and was invited on Tuesday could not
+ * accept the invitation at all.
+ *
+ * The refusal told them to end their pairing in Settings first. That is a five-step
+ * recovery for a two-party problem, on a screen they have to go and find, and it was
+ * the third time today that the way out was somewhere other than where the wall is.
+ * So the way out is here, on the wall.
+ *
+ * Guarded on the pairing being genuinely alone. Two RPCs rather than one function
+ * because it needs no new migration, and the failure mode is mild: if the claim
+ * somehow fails after the pairing is released, they are left unpaired — which is
+ * where they were trying to get to anyway, and the link is still live.
+ */
+export async function replaceEmptyPairingAndJoin(token: string): Promise<ActionResult> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Sign in first, then open the link again.' }
+
+  // Never release a pairing somebody else is in. RLS scopes this to the caller's own
+  // pairing, so a count of 1 means they are genuinely by themselves in it.
+  const { count, error: countError } = await supabase
+    .from('pair_members')
+    .select('user_id', { count: 'exact', head: true })
+    .is('left_at', null)
+
+  if (countError) return { error: countError.message }
+  if ((count ?? 0) > 1) {
+    return {
+      error:
+        'You’re synced with somebody, not waiting alone — ending that is a separate ' +
+        'decision, in Settings.',
+    }
+  }
+
+  const { error: endError } = await supabase.rpc('end_pairing', { p_letters: 'keep' })
+  if (endError) return { error: endError.message }
+
+  const { error: claimError } = await supabase.rpc('claim_invite', {
+    p_token_hash: hashToken(token),
+  })
+  if (claimError) {
+    return {
+      error:
+        claimError.message +
+        ' Your own pairing has been let go, so opening the link again should work now.',
+    }
+  }
+
+  revalidatePath('/')
+  redirect('/')
+}
+
 /** The 24-hour undo when an invite link reached the wrong person. */
 export async function revokeClaim(): Promise<ActionResult> {
   const supabase = await createClient()

@@ -212,6 +212,7 @@ export default async function JoinPage({
             token={decodeURIComponent(token)}
             inviter={inviter}
             meFirstName={me.firstName}
+            hasOwnPairing={Boolean(mine)}
           />
         </div>
       </Frame>
