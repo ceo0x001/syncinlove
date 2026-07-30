@@ -17,10 +17,23 @@ import { Button, Card, Notice, TextField } from './ui'
  * went — being told would turn the refusal itself into a message.
  */
 
+/**
+ * A sealed letter, as much of it as the recipient is allowed to know.
+ *
+ * Mirrors the columns of `sealed_for_me()` exactly, snake_case included, because
+ * it arrives straight off PostgREST without a mapping layer. `unlock_on` and
+ * `days_away` are both null when the sender chose to hide the date — that null
+ * is the surprise working, not missing data.
+ *
+ * `sealed_for_me()` also returns `from_name`; it is deliberately absent here.
+ * The sender's name is nulled out when the date is hidden, whereas the component
+ * already knows `partnerFirstName` unconditionally — so from_name exists for the
+ * notification email, which has no other way to get it.
+ */
 export interface SealedForMe {
-  id: string
+  letter_id: string
   unlock_on: string | null
-  date_visible: boolean
+  days_away: number | null
 }
 
 export interface OpenLetter {
@@ -82,7 +95,7 @@ export function Vault({
         <div className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
           <p className="t-label">Waiting for you</p>
           {sealedForMe.map((letter) => (
-            <SealedRow key={letter.id} letter={letter} from={partnerFirstName} />
+            <SealedRow key={letter.letter_id} letter={letter} from={partnerFirstName} />
           ))}
         </div>
       ) : null}
@@ -114,6 +127,30 @@ export function Vault({
   )
 }
 
+/**
+ * When it opens, in the words somebody would actually use.
+ *
+ * A bare date makes the reader do the arithmetic, and the whole point of a
+ * sealed letter is anticipation — "in 3 days" carries that and "Opens 14 Aug"
+ * does not. The date comes along past a week out, where the countdown stops
+ * meaning anything and a date is the more useful of the two.
+ *
+ * Today and negative are both possible: the date can arrive between the page
+ * rendering and the reader looking at it, and the letters policy uses the pair's
+ * timezone rather than the viewer's, so a few hours of disagreement is normal.
+ * Both say the same thing, which is that it is ready now.
+ */
+function opensWhen(letter: SealedForMe): string {
+  if (letter.unlock_on === null) return 'They chose not to tell you when it opens'
+
+  const days = letter.days_away
+  if (days === null) return `Opens ${formatDate(letter.unlock_on)}`
+  if (days <= 0) return 'Opens today'
+  if (days === 1) return 'Opens tomorrow'
+  if (days <= 7) return `Opens in ${days} days`
+  return `Opens in ${days} days · ${formatDate(letter.unlock_on)}`
+}
+
 function SealedRow({ letter, from }: { letter: SealedForMe; from: string }) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -125,11 +162,7 @@ function SealedRow({ letter, from }: { letter: SealedForMe; from: string }) {
         <span aria-hidden className="mt-1 block size-3.5 shrink-0 rounded-full bg-sealed" />
         <div className="min-w-0">
           <p className="t-title text-ink">A letter from {from}</p>
-          <p className="t-small mt-1 text-ink-muted">
-            {letter.date_visible && letter.unlock_on
-              ? `Opens ${formatDate(letter.unlock_on)}`
-              : 'They chose not to tell you when it opens'}
-          </p>
+          <p className="t-small mt-1 text-ink-muted">{opensWhen(letter)}</p>
         </div>
       </div>
 
@@ -146,7 +179,7 @@ function SealedRow({ letter, from }: { letter: SealedForMe; from: string }) {
                 disabled={pending}
                 onClick={() =>
                   startTransition(async () => {
-                    const result = await destroyLetter(letter.id)
+                    const result = await destroyLetter(letter.letter_id)
                     if (result?.error) setError(result.error)
                   })
                 }

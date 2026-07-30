@@ -34,7 +34,7 @@ export interface Me {
    */
   listOptIn: boolean
   /** Which nudges they want. Each defaults on, and each is separately refusable. */
-  notify: { reminders: boolean; partner: boolean; requests: boolean }
+  notify: { reminders: boolean; partner: boolean; requests: boolean; letters: boolean }
   /**
    * Granted in SQL only — there is no write path to the admins table through the
    * API, so this cannot be self-assigned. Admins see the admin panel instead of
@@ -186,6 +186,7 @@ const PROFILE_CORE = 'first_name'
 /** Everything else. Nice to have, and never allowed to take the core down. */
 const PROFILE_EXTRAS =
   'list_display, list_alias, list_opt_in, notify_reminders, notify_partner, notify_requests, ' +
+  'notify_letters, ' +
   'suspended_at, suspended_reason'
 
 /** The signed-in user, or null. Never throws on an absent session. */
@@ -254,6 +255,7 @@ export async function getMe(): Promise<Me | null> {
       reminders: profile?.notify_reminders !== false,
       partner: profile?.notify_partner !== false,
       requests: profile?.notify_requests !== false,
+      letters: profile?.notify_letters !== false,
     },
     isAdmin: adminRes.data === true,
     suspendedAt: (profile?.suspended_at as string | undefined) ?? null,

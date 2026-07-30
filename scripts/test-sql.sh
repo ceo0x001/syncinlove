@@ -95,11 +95,16 @@ for suite in supabase/tests/phase*.sql; do
   run -q -f supabase/seed/questions.sql >/dev/null
 
   echo "  ── $(basename "$suite")"
-  output=$(run -f "$suite" 2>&1)
+
+  # `|| true` matters. Under `set -e`, a command substitution that fails takes
+  # the whole script down with it — so the first suite to error used to kill the
+  # run before it could print the error that killed it. An exit code of 3 and no
+  # output is the least useful thing a test runner can do.
+  output=$(run -f "$suite" 2>&1) || true
   echo "$output" \
     | grep -E 'NOTICE:  ok|NOTICE:  \(|ERROR|FAILED|ALL ' \
     | sed -E 's/^psql:[^ ]+ //; s/NOTICE:  //; s/^/  /'
-  echo "$output" | grep -qE 'ERROR|FAILED' && FAILED=1
+  if echo "$output" | grep -qE 'ERROR|FAILED'; then FAILED=1; fi
   echo
 done
 

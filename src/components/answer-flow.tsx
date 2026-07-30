@@ -2,6 +2,7 @@
 
 import { useActionState, useMemo, useState } from 'react'
 import { submitAnswer } from '@/app/actions'
+import { haptic } from '@/lib/haptics'
 import { withPartnerName } from '@/lib/questions/bank'
 import type { AnswerPayload, Question } from '@/lib/questions/types'
 import { ChoiceInput, ScaleInput } from './facet-inputs'
@@ -122,7 +123,14 @@ export function AnswerFlow({
 
       {step === 'self' ? (
         <div className="stack" style={{ ['--stack-gap' as string]: '0.75rem' }}>
-          <Button type="button" disabled={!stepComplete} onClick={() => setStep('guess')}>
+          <Button
+            type="button"
+            disabled={!stepComplete}
+            onClick={() => {
+              haptic('tap')
+              setStep('guess')
+            }}
+          >
             Next — guess {them}
           </Button>
           {partnerAnswered ? (
@@ -132,7 +140,12 @@ export function AnswerFlow({
           ) : null}
         </div>
       ) : (
-        <form action={formAction} className="stack" style={{ ['--stack-gap' as string]: '0.75rem' }}>
+        <form
+          action={formAction}
+          onSubmit={() => haptic('commit')}
+          className="stack"
+          style={{ ['--stack-gap' as string]: '0.75rem' }}
+        >
           <input type="hidden" name="dayIndex" value={dayIndex} />
           <input type="hidden" name="self" value={JSON.stringify(self)} />
           <input type="hidden" name="guess" value={JSON.stringify(guess)} />

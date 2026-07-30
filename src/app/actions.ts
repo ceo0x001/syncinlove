@@ -557,11 +557,12 @@ export async function updateNotifyPrefs(
 ): Promise<ActionResult> {
   const supabase = await createClient()
   const { error } = await supabase.rpc('update_notify_prefs', {
-    // An unchecked box sends nothing, and this form always submits all three, so
+    // An unchecked box sends nothing, and this form always submits every kind, so
     // absence is a deliberate no rather than "leave it alone".
     p_reminders: formData.get('reminders') === 'on',
     p_partner: formData.get('partner') === 'on',
     p_requests: formData.get('requests') === 'on',
+    p_letters: formData.get('letters') === 'on',
   })
   if (error) return { error: error.message }
 
@@ -759,5 +760,42 @@ export async function adminResendCode(email: string): Promise<ActionResult> {
   })
   if (error) return { error: friendlyAuthError(error.message) }
 
+  return { ok: true }
+}
+
+/**
+ * Register this browser for push.
+ *
+ * Takes the three fields rather than the whole PushSubscription because that is
+ * all the relay needs and all the table stores. The browser's serialised
+ * subscription also carries an expirationTime nobody implements and a keys object
+ * whose shape has changed once already.
+ */
+export async function savePushSubscription(
+  endpoint: string,
+  p256dh: string,
+  auth: string,
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('save_push_subscription', {
+    p_endpoint: endpoint,
+    p_p256dh: p256dh,
+    p_auth: auth,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/settings')
+  return { ok: true }
+}
+
+/** Forget this browser. The browser-side unsubscribe happens in the component. */
+export async function deletePushSubscription(endpoint: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('delete_push_subscription', {
+    p_endpoint: endpoint,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/settings')
   return { ok: true }
 }

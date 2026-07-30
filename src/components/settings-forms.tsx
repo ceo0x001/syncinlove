@@ -489,6 +489,13 @@ export function NotifyForm({ me }: { me: Me }) {
       label: 'When something’s asked of you',
       detail: 'Somebody spent tender on your menu. No clock on it, but you should know.',
     },
+    {
+      name: 'letters',
+      on: me.notify.letters,
+      label: 'When a sealed letter opens',
+      detail:
+        'The day one becomes readable — and, if you sent one, the day they open it. Never that they didn’t.',
+    },
   ] as const
 
   return (

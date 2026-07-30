@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ClaimEmail } from '@/components/claim-email'
+import { DeviceForm } from '@/components/device-forms'
 import { SetupNotice } from '@/components/setup-notice'
 import {
   BurnForm,
@@ -74,6 +75,16 @@ export default async function SettingsPage() {
         <Rule />
 
         <NotifyForm me={me} />
+
+        <Rule />
+
+        {/*
+          Read on the server so the key travels in the rendered HTML rather than
+          being read from process.env inside a client component — NEXT_PUBLIC_ vars
+          are inlined at build time, and a missing one becomes the literal string
+          "undefined" in the bundle rather than a falsy value the UI can react to.
+        */}
+        <DeviceForm vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || null} />
 
         <Rule />
 

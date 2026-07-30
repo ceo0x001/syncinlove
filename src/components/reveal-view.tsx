@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { haptic } from '@/lib/haptics'
 import { withPartnerName } from '@/lib/questions/bank'
 import type { AnswerPayload, ChoiceFacet, Facet, Question, ScaleFacet } from '@/lib/questions/types'
 import { NEUTRAL_MATCH, scoreFacet } from '@/lib/sync/score'
@@ -524,6 +525,22 @@ function useRevealSequence(): { stage: number; reduced: boolean } {
       : STAGES.flatMap((at, index) =>
           index === 0 ? [] : [window.setTimeout(() => setStage(index), at)],
         )
+
+    /**
+     * The buzz lands with the seal breaking — stage 1, where the score arrives —
+     * not on mount and not at the end. It is the beat the whole sequence is built
+     * around, and a vibration a second early or late reads as unrelated to it.
+     *
+     * Scheduled on its own timer rather than inside the stage-1 callback so it
+     * survives that callback being restructured, and so it is cancelled by the
+     * same cleanup if the page is left before the reveal plays.
+     *
+     * Skipped under reduced motion. Somebody who asked for less movement did not
+     * ask for a phone that jumps in their hand.
+     */
+    if (!prefersReduced) {
+      timers.push(window.setTimeout(() => haptic('reveal'), STAGES[1]))
+    }
 
     return () => {
       for (const t of timers) window.clearTimeout(t)

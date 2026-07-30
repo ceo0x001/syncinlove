@@ -158,20 +158,29 @@ select assert(
 );
 
 select assert(
-  jsonb_array_length(public.sealed_for_me()) = 2,
+  (select count(*) from public.sealed_for_me()) = 2,
   'but they are told two letters are waiting'
 );
 
 select assert(
-  (select count(*) from jsonb_array_elements(public.sealed_for_me()) e
-   where e ->> 'unlock_on' is not null) = 1,
+  (select count(*) from public.sealed_for_me() where unlock_on is not null) = 1,
   'the date shows only for the letter whose sender allowed it'
 );
 
+-- date_visible is no longer returned, and does not need to be: a null unlock_on
+-- IS the hidden date. Returning the flag as well would have let a caller render
+-- "opens on null" instead of "they chose not to tell you".
 select assert(
-  (select count(*) from jsonb_array_elements(public.sealed_for_me()) e
-   where (e ->> 'date_visible')::boolean is false and e ->> 'unlock_on' is null) = 1,
+  (select count(*) from public.sealed_for_me()
+    where unlock_on is null and days_away is null) = 1,
   'a hidden date really is withheld — the surprise survives'
+);
+
+select assert(
+  (select days_away from public.sealed_for_me() where unlock_on is not null)
+    = (select unlock_on from public.sealed_for_me() where unlock_on is not null)
+      - (now() at time zone 'UTC')::date,
+  'days_away counts from the pair-local today, not the server clock'
 );
 
 do $$
@@ -192,7 +201,7 @@ end $$;
 select public.destroy_letter(:'hidden_letter');
 
 select assert(
-  jsonb_array_length(public.sealed_for_me()) = 1,
+  (select count(*) from public.sealed_for_me()) = 1,
   'the recipient can destroy a sealed letter unopened, unilaterally'
 );
 

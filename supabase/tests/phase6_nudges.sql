@@ -202,13 +202,103 @@ select assert(
 );
 
 select assert(
-  has_function_privilege('authenticated', 'public.claim_nudge(uuid,uuid,text,int)', 'execute') is false,
+  has_function_privilege('authenticated', 'public.claim_nudge(uuid,uuid,text,int,uuid)', 'execute') is false,
   'and neither is claiming'
 );
 
 select assert(
-  has_function_privilege('authenticated', 'public.update_notify_prefs(boolean,boolean,boolean)', 'execute'),
+  has_function_privilege('authenticated', 'public.update_notify_prefs(boolean,boolean,boolean,boolean)', 'execute'),
   'but changing your own preferences is'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- Letters
+--
+-- The property worth defending: a recipient can destroy a sealed letter unread
+-- and the sender is never told. That silence was promised so somebody can
+-- decline a message from a relationship that went wrong without reading it and
+-- without explaining. A notification would break the promise quietly.
+-- ---------------------------------------------------------------------------
+
+\set ready  'aaaa1111-0000-0000-0000-0000000011aa'
+\set future 'bbbb2222-0000-0000-0000-0000000022bb'
+
+insert into public.letters (id, pair_id, sender_id, recipient_id, title, body, unlock_on, date_visible)
+values
+  (:'ready',  :'pair', :'ann', :'ben', 'Ready',  'body', current_date - 1, true),
+  (:'future', :'pair', :'ann', :'ben', 'Future', 'body', current_date + 9, true);
+
+select assert(
+  (select count(*) from public.nudge_queue(0)
+    where kind = 'letter_ready' and letter_id = :'ready'::uuid) = 1,
+  'a letter whose date has arrived is announced to its recipient'
+);
+
+select assert(
+  (select count(*) from public.nudge_queue(0)
+    where kind = 'letter_ready' and letter_id = :'future'::uuid) = 0,
+  'and one still in the future is not'
+);
+
+-- The recipient can see how far off a dated letter is.
+set sync.uid = 'b1000000-0000-0000-0000-0000000000b1';
+select assert(
+  (select days_away from public.sealed_for_me() where letter_id = :'future'::uuid) = 9,
+  'the recipient is told how many days until it opens'
+);
+
+select public.open_letter(:'ready');
+
+select assert(
+  (select count(*) from public.nudge_queue(0)
+    where kind = 'letter_opened' and letter_id = :'ready'::uuid
+      and user_id = :'ann'::uuid) = 1,
+  'opening it tells the sender, and only the sender'
+);
+
+-- Now the one that matters. Bring the future letter's date forward so it is
+-- openable, then refuse it instead.
+update public.letters set unlock_on = current_date where id = :'future';
+select public.destroy_letter(:'future');
+
+select assert(
+  (select count(*) from public.nudge_queue(0)
+    where kind = 'letter_opened' and letter_id = :'future'::uuid) = 0,
+  'a letter destroyed unread tells the sender NOTHING'
+);
+
+select assert(
+  (select count(*) from public.letters where id = :'future'::uuid) = 0,
+  'and it is really gone'
+);
+
+-- Preference.
+update public.profiles set notify_letters = false;
+select assert(
+  (select count(*) from public.nudge_queue(0) where kind like 'letter%') = 0,
+  'switching letters off silences both kinds'
+);
+update public.profiles set notify_letters = true;
+
+-- Claiming is per letter, not per kind: two ready letters must be two nudges.
+select assert(
+  public.claim_nudge(:'pair', :'ben', 'letter_ready', null, :'ready'::uuid) is true,
+  'the first claim on a letter wins'
+);
+select assert(
+  public.claim_nudge(:'pair', :'ben', 'letter_ready', null, :'ready'::uuid) is false,
+  'a letter already notified is not notified twice'
+);
+-- A real second letter, not a fabricated id: notifications.letter_id carries a
+-- foreign key, so a made-up uuid tests the constraint rather than the claim.
+\set second 'cccc3333-0000-0000-0000-0000000033cc'
+insert into public.letters (id, pair_id, sender_id, recipient_id, title, body, unlock_on, date_visible)
+values (:'second', :'pair', :'ann', :'ben', 'Second', 'body', current_date, true);
+
+select assert(
+  public.claim_nudge(:'pair', :'ben', 'letter_ready', null, :'second'::uuid) is true,
+  'but a different letter claims separately, so the second one is not swallowed'
 );
 
 rollback;
