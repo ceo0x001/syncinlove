@@ -755,6 +755,33 @@ export async function loadAdmin(search?: string): Promise<AdminData | null> {
       supabase.rpc('admin_nudges'),
     ])
 
+  // Every one of these swallowed its error before, so an empty account list was
+  // indistinguishable from a failing query. .rpc() does not throw — it returns
+  // {data: null, error} — which is exactly how a broken call renders as "no
+  // accounts match that search".
+  for (const [name, res] of [
+    ['admin_overview', overviewRes],
+    ['admin_retention', retentionRes],
+    ['admin_accounts', accountsRes],
+    ['admin_economy', economyRes],
+    ['admin_nudges', nudgesRes],
+  ] as const) {
+    if (res.error) {
+      console.error(`[loadAdmin] ${name} failed:`, {
+        code: res.error.code,
+        message: res.error.message,
+        details: res.error.details,
+        hint: res.error.hint,
+      })
+    }
+  }
+
+  console.warn('[loadAdmin] rows returned:', {
+    accounts: Array.isArray(accountsRes.data) ? accountsRes.data.length : null,
+    retention: Array.isArray(retentionRes.data) ? retentionRes.data.length : null,
+    overviewUsers: (overviewRes.data as Record<string, unknown> | null)?.users ?? null,
+  })
+
   const o = (overviewRes.data ?? {}) as Record<string, number>
 
   return {
