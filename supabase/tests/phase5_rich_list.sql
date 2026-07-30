@@ -289,4 +289,67 @@ select eq('digits inside a real name are fine',
   (select list_alias from public.profiles where id = 'f1000000-0000-0000-0000-0000000000f1'),
   'Agent 99');
 
+
+-- ---------------------------------------------------------------------------
+-- What counts as earned
+--
+-- This decides a public ranking, so the distinction between the two hand-granted
+-- reasons is worth a permanent test rather than a comment. 'restored' puts back
+-- tender that was genuinely earned and then destroyed by a fault of ours, so it
+-- ranks. 'adjustment' is a correction or a gift, so it does not.
+--
+-- Also guards the consolidation: "earned" lived in four functions by copy-paste and
+-- two of them had already drifted, so tender_earned reported a smaller number than
+-- the one the couple was ranked on. If any caller ever stops asking
+-- tender_earning_reasons(), one of these two totals moves and the other does not.
+-- ---------------------------------------------------------------------------
+
+\set pa '11110000-0000-0000-0000-000000000011'
+
+-- Both halves of pair A on the list, so it has a public standing to move.
+update public.profiles set list_opt_in = true
+where id in ('a0000000-0000-0000-0000-00000000000a', 'b0000000-0000-0000-0000-00000000000b');
+
+select eq('a streak bonus counts toward earned, as the list already assumed',
+  (select earned from public.rich_list_rows(null) where pair_id = :'pa'::uuid),
+  60000);
+
+insert into public.tender_entries (pair_id, user_id, amount, reason, detail)
+values (:'pa', 'a0000000-0000-0000-0000-00000000000a', 5000, 'adjustment', '{}'::jsonb);
+
+select eq('an adjustment is spendable but does NOT move the public ranking',
+  (select earned from public.rich_list_rows(null) where pair_id = :'pa'::uuid),
+  60000);
+
+insert into public.tender_entries (pair_id, user_id, amount, reason, detail)
+values (:'pa', 'a0000000-0000-0000-0000-00000000000a', 7000, 'restored', '{}'::jsonb);
+
+select eq('restored tender DOES, because it was earned before we destroyed it',
+  (select earned from public.rich_list_rows(null) where pair_id = :'pa'::uuid),
+  67000);
+
+-- Both reasons spend the same. Only provenance differs.
+set sync.uid = 'a0000000-0000-0000-0000-00000000000a';
+select eq('both land in the balance, so either can be spent on a partner',
+  public.tender_balance(),
+  (select sum(amount)::int from public.tender_entries
+    where pair_id = :'pa'::uuid and user_id = 'a0000000-0000-0000-0000-00000000000a'));
+
+select eq('and one person''s earned figure agrees with what the list ranks them on',
+  public.tender_earned(),
+  (select sum(t.amount)::int from public.tender_entries t
+    where t.pair_id = :'pa'::uuid
+      and t.user_id = 'a0000000-0000-0000-0000-00000000000a'
+      and t.amount > 0
+      and t.reason = any (public.tender_earning_reasons())));
+reset role;
+
+select eq('every caller reads the one definition',
+  (select count(*)::int from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and p.proname in ('tender_earned', 'rich_list_rows', 'rich_list_me', 'admin_economy')
+     and pg_get_functiondef(p.oid) like '%tender_earning_reasons%'),
+  4);
+
 rollback;

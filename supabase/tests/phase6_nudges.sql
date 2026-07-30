@@ -24,6 +24,13 @@ begin
   raise notice 'ok — %', p_what;
 end $$;
 
+-- An evening hour no clock can reach, for the assertions that mean "before the
+-- evening". Passing 20 made them true only before 8pm in the pair's zone: this suite
+-- failed for four hours every night, and a suite that fails on a timer is one people
+-- learn to ignore. Pinning the session timezone cannot fix it, because nudge_queue
+-- compares the PAIR's zone against an absolute now().
+\set NOT_YET_EVENING 24
+
 \set ann 'a1000000-0000-0000-0000-0000000000a1'
 \set ben 'b1000000-0000-0000-0000-0000000000b1'
 \set pair '99990000-0000-0000-0000-000000000099'
@@ -49,7 +56,7 @@ insert into public.pair_members (pair_id, user_id, role) values
 -- ---------------------------------------------------------------------------
 
 select assert(
-  (select count(*) from public.nudge_queue(20)) = 0,
+  (select count(*) from public.nudge_queue(:NOT_YET_EVENING)) = 0,
   'an untouched day before the evening owes nobody anything'
 );
 
@@ -62,12 +69,12 @@ insert into public.answers (pair_id, day_index, question_id, user_id, self_paylo
 values (:'pair', 0, (select id from public.questions limit 1), :'ben', '{}'::jsonb, '{}'::jsonb);
 
 select assert(
-  (select count(*) from public.nudge_queue(20) where kind = 'partner_answered') = 1,
+  (select count(*) from public.nudge_queue(:NOT_YET_EVENING) where kind = 'partner_answered') = 1,
   'the one who has not answered is told their partner is waiting'
 );
 
 select assert(
-  (select user_id from public.nudge_queue(20) where kind = 'partner_answered') = :'ann'::uuid,
+  (select user_id from public.nudge_queue(:NOT_YET_EVENING) where kind = 'partner_answered') = :'ann'::uuid,
   'and it goes to them, not to the one who already answered'
 );
 
