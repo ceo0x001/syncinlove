@@ -6,6 +6,7 @@ import { SetupNotice } from '@/components/setup-notice'
 import {
   BurnForm,
   EndPairingForm,
+  DiscardPairingForm,
   ExportButton,
   RevokeClaimForm,
   NotifyForm,
@@ -119,6 +120,13 @@ export default async function SettingsPage() {
           </div>
 
           {partner ? <EndPairingForm partnerFirstName={them} /> : null}
+
+          {/*
+            The solo case, which had no exit at all. claim_invite tells people to end
+            their current pairing here before joining another, and this block is the
+            only reason that instruction is now true for somebody nobody has joined.
+          */}
+          {!partner && home.pair ? <DiscardPairingForm /> : null}
 
           {/*
             Only while it would actually do something: the person who sent the link,

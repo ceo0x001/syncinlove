@@ -316,6 +316,90 @@ export function ExportButton() {
  * this is far more likely to have the right partner and a wrong impression of the
  * button than to have an impostor in their pairing.
  */
+/**
+ * Discarding a pairing nobody joined.
+ *
+ * The dead end this closes: claim_invite refuses a second pairing, and the refusal
+ * says to end the current one in Settings first — but Settings only ever offered
+ * that when a partner existed. Somebody holding a solo pairing was told to do
+ * something the app would not let them do, and the loop had no exit.
+ *
+ * It is reachable exactly when nobody has joined, so there is no shared history to
+ * weigh and nobody on the other side to consider. Confirmed once anyway, because it
+ * does discard whatever you answered while waiting, and because a one-tap
+ * destructive button is the mistake this app already made once today.
+ *
+ * Letters are passed as 'keep'. A solo pairing cannot have a sealed letter — there
+ * was never a recipient — so the choice is moot, and 'keep' is the option that
+ * deletes nothing if that assumption is ever wrong.
+ */
+export function DiscardPairingForm() {
+  const [confirming, setConfirming] = useState(false)
+  const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        className="t-small text-ink-muted underline decoration-hairline-strong underline-offset-4 hover:text-ink"
+      >
+        Start over with a different pairing
+      </button>
+    )
+  }
+
+  return (
+    <div
+      className="stack rounded-[0.875rem] border border-hairline bg-paper-raised p-5"
+      style={{ ['--stack-gap' as string]: '1.25rem' }}
+    >
+      <div>
+        <p className="t-title text-ink">Let this pairing go?</p>
+        <p className="t-small mt-1 text-ink-muted">
+          Nobody joined it, so there is nothing shared to lose. Anything you answered
+          while waiting goes with it, and your invite link stops working.
+        </p>
+        <p className="t-small mt-2 text-ink-muted">
+          Do this if you were invited by somebody and need to accept their link
+          instead &mdash; afterwards, open their link again and it will let you in.
+        </p>
+      </div>
+
+      {error ? <Notice tone="error">{error}</Notice> : null}
+
+      <div className="flex flex-wrap gap-4">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() =>
+            startTransition(async () => {
+              const result = await endPairing('keep')
+              if (result?.error) {
+                setError(result.error)
+                haptic('error')
+                return
+              }
+              haptic('commit')
+            })
+          }
+          className="t-small font-medium text-accent underline decoration-transparent underline-offset-4 hover:decoration-current disabled:opacity-40"
+        >
+          {pending ? 'Letting it go…' : 'Yes, let it go'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirming(false)}
+          className="t-small text-ink-muted underline decoration-hairline underline-offset-4 hover:text-ink"
+        >
+          Keep it
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function RevokeClaimForm({ partnerFirstName }: { partnerFirstName: string }) {
   const [stage, setStage] = useState<'closed' | 'open' | 'sure'>('closed')
   const [pending, startTransition] = useTransition()
