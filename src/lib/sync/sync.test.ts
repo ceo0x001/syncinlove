@@ -277,10 +277,13 @@ describe('agreement with the database scoring function', () => {
 })
 
 describe('question bank integrity', () => {
-  it('has 60 questions and a sequence that covers every one exactly once', () => {
-    expect(QUESTIONS).toHaveLength(60)
-    expect(SEQUENCE).toHaveLength(60)
-    expect(new Set(SEQUENCE).size).toBe(60)
+  it('has a sequence that covers every question exactly once', () => {
+    // No hardcoded total. The bank is meant to grow in batches toward two years
+    // of unique days, and a magic number here just fails on every batch and gets
+    // bumped without being read. The invariant that matters is the mapping being
+    // one-to-one, which is what actually breaks under copy-paste.
+    expect(SEQUENCE).toHaveLength(QUESTIONS.length)
+    expect(new Set(SEQUENCE).size).toBe(SEQUENCE.length)
     expect([...SEQUENCE].sort()).toEqual(QUESTIONS.map((q) => q.id).sort())
   })
 
@@ -688,5 +691,79 @@ describe('tender', () => {
     expect(priceContext(Math.round(TENDER_DAILY_CAP / 2))).toContain('half a day')
     expect(priceContext(TENDER_DAILY_CAP * 3)).toContain('3 days')
     expect(priceContext(0)).toBe('')
+  })
+})
+
+/* ---------------------------------------------------------------------------
+   The question bank
+
+   Invariants rather than content. The bank is meant to grow toward two years of
+   unique days, in batches, and each of these is a mistake that batch growth
+   invites: a copy-pasted id that silently overwrites an entry, a question written
+   and never scheduled, a sequence entry pointing at nothing.
+
+   questionForDay throws on the last of those, which would take down every screen
+   for every couple at once — so it is worth catching here rather than in
+   production on whichever morning that day index came up.
+   --------------------------------------------------------------------------- */
+
+describe('the question bank', () => {
+  it('has no duplicate ids', () => {
+    const ids = QUESTIONS.map((q) => q.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('schedules every question it defines', () => {
+    const unscheduled = QUESTIONS.filter((q) => !SEQUENCE.includes(q.id))
+    expect(unscheduled.map((q) => q.id)).toEqual([])
+  })
+
+  it('never schedules a question that does not exist', () => {
+    const known = new Set(QUESTIONS.map((q) => q.id))
+    expect(SEQUENCE.filter((id) => !known.has(id))).toEqual([])
+  })
+
+  it('resolves every day of a two-year run without throwing', () => {
+    for (let day = 0; day < 730; day++) {
+      expect(questionForDay(day).id).toBeTruthy()
+    }
+  })
+
+  it('gives every question at least one facet to answer', () => {
+    expect(QUESTIONS.filter((q) => q.facets.length === 0)).toEqual([])
+  })
+
+  it('keeps choice option ids unique within a question', () => {
+    for (const question of QUESTIONS) {
+      for (const facet of question.facets) {
+        if (facet.kind !== 'choice') continue
+        const ids = facet.options.map((o) => o.id)
+        expect(new Set(ids).size, `${question.id}/${facet.id}`).toBe(ids.length)
+      }
+    }
+  })
+
+  it('holds the explicit axis back until the ritual has been kept a while', () => {
+    // Attesting to being 18 at signup is not agreeing to be asked tonight, so
+    // this waits on eight weeks of a kept ritual.
+    //
+    // Eight, not the twelve originally intended: the explicit axis has to
+    // alternate with something, the no-consecutive-axis rule is not negotiable,
+    // and values is currently the only other axis late in the sequence. Pushing
+    // it later needs more light and logistics questions to space it with — which
+    // is part of growing this bank out, not a reason to block one axis behind the
+    // other and call it a ramp.
+    const firstExplicit = SEQUENCE.findIndex(
+      (id) => QUESTIONS.find((q) => q.id === id)?.category === 'intimacy',
+    )
+    expect(firstExplicit).toBeGreaterThan(56)
+  })
+
+  it('asks nothing heavy in the first week', () => {
+    const heavy = new Set(['friction', 'desire', 'intimacy', 'values'])
+    const firstWeek = SEQUENCE.slice(0, 7).map(
+      (id) => QUESTIONS.find((q) => q.id === id)?.category,
+    )
+    expect(firstWeek.filter((c) => c && heavy.has(c))).toEqual([])
   })
 })

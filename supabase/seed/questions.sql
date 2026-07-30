@@ -76,7 +76,31 @@ insert into public.questions (id, category, prompt, facets, sequence_position, r
   ('q-regret', 'future', 'What would you regret not having done?', '[{"kind":"choice","id":"what","options":[{"id":"seen"},{"id":"made"},{"id":"said"},{"id":"risk"}]},{"kind":"scale","id":"pressing"}]'::jsonb, 51, false),
   ('q-crisis', 'future', 'If something big went wrong tomorrow — money, health, family.', '[{"kind":"scale","id":"confidence"},{"kind":"choice","id":"weak-point","options":[{"id":"money"},{"id":"talking"},{"id":"blame"},{"id":"help"}]}]'::jsonb, 48, false),
   ('q-afraid-changes', 'future', 'What are you most afraid will change?', '[{"kind":"choice","id":"what","options":[{"id":"this"},{"id":"me"},{"id":"health"},{"id":"nothing","neutral":true}]},{"kind":"scale","id":"weight"}]'::jsonb, 58, false),
-  ('q-next-milestone', 'future', 'The next thing you want to happen for us.', '[{"kind":"choice","id":"what","options":[{"id":"trip"},{"id":"closer"},{"id":"commit"},{"id":"calm"}]},{"kind":"scale","id":"soon"}]'::jsonb, 11, true)
+  ('q-next-milestone', 'future', 'The next thing you want to happen for us.', '[{"kind":"choice","id":"what","options":[{"id":"trip"},{"id":"closer"},{"id":"commit"},{"id":"calm"}]},{"kind":"scale","id":"soon"}]'::jsonb, 11, true),
+  ('q-dealbreaker-real', 'values', 'What would actually end this?', '[{"kind":"choice","id":"what","options":[{"id":"lying"},{"id":"cheating"},{"id":"contempt"},{"id":"checked-out"}]},{"kind":"scale","id":"absolute"}]'::jsonb, 82, false),
+  ('q-money-instinct', 'values', 'Money arrives unexpectedly. What’s your first instinct?', '[{"kind":"choice","id":"instinct","options":[{"id":"save"},{"id":"clear"},{"id":"spend"},{"id":"give"}]},{"kind":"scale","id":"tight"}]'::jsonb, 62, false),
+  ('q-friend-crossed', 'values', 'A close friend of yours disrespects me. What happens?', '[{"kind":"choice","id":"response","options":[{"id":"immediate"},{"id":"later"},{"id":"distance"},{"id":"nothing"}]},{"kind":"scale","id":"loyalty"}]'::jsonb, 74, false),
+  ('q-apology-shape', 'values', 'What does a real apology have in it?', '[{"kind":"choice","id":"shape","options":[{"id":"named"},{"id":"why"},{"id":"changed"},{"id":"said"}]},{"kind":"scale","id":"grudge"}]'::jsonb, 60, false),
+  ('q-two-years', 'values', 'Two years out — what has to be different?', '[{"kind":"choice","id":"area","options":[{"id":"work"},{"id":"money"},{"id":"place"},{"id":"us"}]},{"kind":"scale","id":"urgency"}]'::jsonb, 70, true),
+  ('q-conflict-style', 'values', 'Mid-argument, what do you do?', '[{"kind":"choice","id":"move","options":[{"id":"push"},{"id":"withdraw"},{"id":"concede"},{"id":"sharpen"}]},{"kind":"scale","id":"repair"}]'::jsonb, 66, false),
+  ('q-family-pull', 'values', 'How much say should family have in our decisions?', '[{"kind":"choice","id":"say","options":[{"id":"none"},{"id":"heard"},{"id":"weight"},{"id":"blessing"}]},{"kind":"scale","id":"pressure"}]'::jsonb, 78, false),
+  ('q-privacy-line', 'values', 'What’s allowed to stay private, even from me?', '[{"kind":"choice","id":"what","options":[{"id":"phone"},{"id":"past"},{"id":"therapy"},{"id":"nothing"}]},{"kind":"scale","id":"open"}]'::jsonb, 72, false),
+  ('q-effort-fair', 'values', 'Right now, does the effort feel evenly split?', '[{"kind":"scale","id":"balance"},{"kind":"choice","id":"kind","options":[{"id":"practical"},{"id":"emotional"},{"id":"money"},{"id":"initiating"}]}]'::jsonb, 64, true),
+  ('q-lie-size', 'values', 'Which lie would you rather be told?', '[{"kind":"choice","id":"which","options":[{"id":"kind"},{"id":"omission"},{"id":"none"}]},{"kind":"scale","id":"bluntness"}]'::jsonb, 76, false),
+  ('q-ambition-cost', 'values', 'What are you willing to sacrifice for what you want?', '[{"kind":"choice","id":"cost","options":[{"id":"time"},{"id":"comfort"},{"id":"place"},{"id":"nothing"}]},{"kind":"scale","id":"drive"}]'::jsonb, 80, true),
+  ('q-forgive-what', 'values', 'What do you find easiest to forgive?', '[{"kind":"choice","id":"what","options":[{"id":"careless"},{"id":"temper"},{"id":"flake"},{"id":"secret"}]},{"kind":"scale","id":"second-chance"}]'::jsonb, 68, false),
+  ('q-how-often', 'intimacy', 'How often would you actually like sex?', '[{"kind":"choice","id":"often","options":[{"id":"daily"},{"id":"few"},{"id":"weekly"},{"id":"rarely"}]},{"kind":"scale","id":"gap"}]'::jsonb, 61, true),
+  ('q-initiate', 'intimacy', 'Who starts it, and who’d you like to?', '[{"kind":"choice","id":"prefer","options":[{"id":"me"},{"id":"you"},{"id":"either"},{"id":"both"}]},{"kind":"scale","id":"refusal"}]'::jsonb, 65, true),
+  ('q-intensity', 'intimacy', 'How rough do you like it?', '[{"kind":"scale","id":"rough"},{"kind":"choice","id":"flavour","options":[{"id":"tender"},{"id":"urgent"},{"id":"power"},{"id":"teasing"}]}]'::jsonb, 73, true),
+  ('q-in-charge', 'intimacy', 'Who’s in charge, when it’s at its best?', '[{"kind":"scale","id":"control"},{"kind":"choice","id":"how","options":[{"id":"told"},{"id":"held"},{"id":"directing"},{"id":"swap"}]}]'::jsonb, 79, true),
+  ('q-fantasy-hold', 'intimacy', 'What have you thought about but never said out loud?', '[{"kind":"choice","id":"kind","options":[{"id":"role"},{"id":"watched"},{"id":"restraint"},{"id":"more"}]},{"kind":"scale","id":"real"}]'::jsonb, 83, true),
+  ('q-what-i-miss', 'intimacy', 'What do you miss most from when we started?', '[{"kind":"choice","id":"miss","options":[{"id":"hunger"},{"id":"length"},{"id":"nerve"},{"id":"nothing"}]},{"kind":"scale","id":"nostalgia"}]'::jsonb, 63, true),
+  ('q-hardest-ask', 'intimacy', 'What’s the hardest thing to ask me for in bed?', '[{"kind":"choice","id":"why","options":[{"id":"judged"},{"id":"obliged"},{"id":"words"},{"id":"rejected"}]},{"kind":"scale","id":"safe"}]'::jsonb, 69, true),
+  ('q-turned-off', 'intimacy', 'What kills it fastest for you?', '[{"kind":"choice","id":"kill","options":[{"id":"absent"},{"id":"pressure"},{"id":"unresolved"},{"id":"tired"}]},{"kind":"scale","id":"recover"}]'::jsonb, 71, true),
+  ('q-body-seen', 'intimacy', 'How do you want to be looked at?', '[{"kind":"choice","id":"how","options":[{"id":"devoured"},{"id":"admired"},{"id":"told"},{"id":"dark"}]},{"kind":"scale","id":"comfort"}]'::jsonb, 75, true),
+  ('q-after', 'intimacy', 'Afterwards — what do you actually want?', '[{"kind":"choice","id":"want","options":[{"id":"held"},{"id":"talk"},{"id":"again"},{"id":"sleep"}]},{"kind":"scale","id":"matters"}]'::jsonb, 67, true),
+  ('q-out-loud', 'intimacy', 'How much talking do you want during?', '[{"kind":"scale","id":"volume"},{"kind":"choice","id":"what","options":[{"id":"filthy"},{"id":"instructions"},{"id":"tender"},{"id":"name"}]}]'::jsonb, 77, true),
+  ('q-anticipation', 'intimacy', 'Would you rather be surprised or made to wait?', '[{"kind":"choice","id":"prefer","options":[{"id":"surprise"},{"id":"warned"},{"id":"built"},{"id":"planned"}]},{"kind":"scale","id":"patience"}]'::jsonb, 81, true)
 on conflict (id) do update set
   category          = excluded.category,
   prompt            = excluded.prompt,
@@ -86,7 +110,7 @@ on conflict (id) do update set
 
 commit;
 
--- Sanity check. Expect 60.
+-- Sanity check. Expect 84.
 select count(*) as questions_in_rotation
 from public.questions
 where sequence_position is not null;

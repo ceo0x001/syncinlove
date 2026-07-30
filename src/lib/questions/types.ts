@@ -32,6 +32,10 @@ export type Category =
   | 'friction'
   | 'desire'
   | 'future'
+  /** Behaviour, values, dealbreakers, goals. The heaviest lifting. */
+  | 'values'
+  /** Sex, explicitly. Gated deep in the sequence; the app is 18+ attested. */
+  | 'intimacy'
 
 export interface ChoiceOption {
   /** Stable within the question. Answers store this, never the label, so a

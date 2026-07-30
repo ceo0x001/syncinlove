@@ -5,9 +5,11 @@ import { DEEP } from './deep'
 import { FRICTION } from './friction'
 import { DESIRE } from './desire'
 import { FUTURE } from './future'
+import { VALUES } from './values'
+import { INTIMACY } from './intimacy'
 
 /**
- * The question bank: 60 questions across six axes.
+ * The question bank, across eight axes.
  *
  * Written to hold up across very different couples — long-distance, three weeks
  * in, twenty years in, queer, non-monogamous, living apart. So: nothing assumes
@@ -22,6 +24,8 @@ export const QUESTIONS: Question[] = [
   ...FRICTION,
   ...DESIRE,
   ...FUTURE,
+  ...VALUES,
+  ...INTIMACY,
 ]
 
 /**
@@ -113,11 +117,48 @@ export const SEQUENCE: string[] = [
   'q-worst-moment',
   'q-whose-career',
 
-  // ---- Week 9. The heaviest, last. ---------------------------------------
+  // ---- Week 9. The heaviest of the original nine weeks. -------------------
   'q-initiating',
   'q-dont-know',
   'q-afraid-changes',
   'q-ten-years',
+
+  // ---- Week 10 onward. Values, and sex. -----------------------------------
+  //
+  // Alternating, not blocked. The no-two-consecutive-days-on-one-axis rule is
+  // load-bearing: twelve nights of sex questions in a row is an interrogation,
+  // and seven nights of dealbreakers is a tribunal. Alternating them also means
+  // the explicit axis arrives among something gentler rather than as a switch
+  // being thrown.
+  //
+  // Sex enters around week nine rather than week twelve, which is the honest
+  // cost of alternating with only one other axis to alternate against. Pushing
+  // it later needs more light and logistics questions to space it with — part of
+  // the remaining work to grow this bank toward two years of unique days.
+  'q-apology-shape',
+  'q-how-often',
+  'q-money-instinct',
+  'q-what-i-miss',
+  'q-effort-fair',
+  'q-initiate',
+  'q-conflict-style',
+  'q-after',
+  'q-forgive-what',
+  'q-hardest-ask',
+  'q-two-years',
+  'q-turned-off',
+  'q-privacy-line',
+  'q-intensity',
+  'q-friend-crossed',
+  'q-body-seen',
+  'q-lie-size',
+  'q-out-loud',
+  'q-family-pull',
+  'q-in-charge',
+  'q-ambition-cost',
+  'q-anticipation',
+  'q-dealbreaker-real',
+  'q-fantasy-hold',
 ]
 
 const BY_ID = new Map(QUESTIONS.map((q) => [q.id, q]))

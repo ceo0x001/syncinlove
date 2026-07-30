@@ -98,18 +98,26 @@ select assert(
 -- ---------------------------------------------------------------------------
 -- Renewable rotation. Past the first pass, only renewable questions.
 -- ---------------------------------------------------------------------------
+-- No hardcoded total. The bank grows in batches toward two years of unique days,
+-- and a magic number here fails on every batch and gets bumped without being
+-- read. What matters is that every seeded question has a place in the sequence.
 select assert(
-  (select count(*) from public.questions where sequence_position is not null) = 60,
-  'the bank holds 60 questions'
+  (select count(*) from public.questions where sequence_position is null) = 0,
+  'every seeded question has a place in the sequence'
 );
 select assert((public.question_for_day(0)).id = 'q-sleep', 'day 0 is the gentle opener');
 select assert(
-  (select count(*) from generate_series(60, 200) d
+  (select count(*) from generate_series(
+     (select count(*)::int from public.questions where sequence_position is not null),
+     (select count(*)::int from public.questions where sequence_position is not null) + 200
+   ) d
    where not (public.question_for_day(d)).renewable) = 0,
   'nothing non-renewable is ever recycled'
 );
 select assert(
-  (public.question_for_day(60)).id <> (public.question_for_day(0)).id
+  (public.question_for_day(
+    (select count(*)::int from public.questions where sequence_position is not null)
+  )).id <> (public.question_for_day(0)).id
   or (public.question_for_day(0)).renewable,
   'the wrap lands on a renewable question'
 );
