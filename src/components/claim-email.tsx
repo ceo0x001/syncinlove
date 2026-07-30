@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from 'react'
 import { sendClaimCode, verifyClaimCode } from '@/app/actions'
+import { ResendCode } from './resend-code'
 import { Button, Notice, TextField } from './ui'
 
 /**
@@ -166,6 +167,10 @@ function ClaimAttempt({
       <Button type="submit" disabled={verifying}>
         {verifying ? 'Checking…' : 'Confirm'}
       </Button>
+
+      {/* A code that never turns up used to leave only one way out — changing the
+          address, which discards the one that was right. */}
+      <ResendCode email={email} send={sendClaimCode} disabled={verifying} />
 
       {/* Without this, a wrong address is a dead end. */}
       <Button type="button" variant="ghost" onClick={startOver} disabled={verifying}>

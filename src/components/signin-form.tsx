@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from 'react'
 import { sendSignInCode, verifySignInCode } from '@/app/actions'
+import { ResendCode } from './resend-code'
 import { Button, Notice, TextField } from './ui'
 
 /**
@@ -114,6 +115,10 @@ function SignInAttempt({ onRestart }: { onRestart: () => void }) {
       <Button type="submit" disabled={verifying}>
         {verifying ? 'Signing you in…' : 'Sign in'}
       </Button>
+
+      {/* Same dead end as the claim flow had: without this, a code that never
+          arrives leaves nothing to do but abandon a correct address. */}
+      <ResendCode email={email} send={sendSignInCode} disabled={verifying} />
 
       <Button type="button" variant="ghost" onClick={startOver} disabled={verifying}>
         Use a different address
