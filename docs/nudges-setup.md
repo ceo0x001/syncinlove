@@ -23,19 +23,26 @@ So the whole job runs inside Postgres. Addresses never leave the database.
 - **`pg_cron`** — runs the job on a schedule
 - **`pg_net`** — lets Postgres make the HTTP call to Resend
 
-## 2. Store the Resend API key
+## 2. Store the key, and create the job
 
-Get a key from Resend (**API Keys → Create**, send-only permission is enough).
-Then in the **SQL Editor**, replacing the placeholder with your real key:
+Vault turned out not to be available on this project, so the key lives in a table
+instead — `public.private_config`, with RLS on and no policies at all, which makes
+it unreachable through the API, plus the privileges revoked outright. Only a
+SECURITY DEFINER function running as the owner can read it.
 
-```sql
--- Vault is Supabase's encrypted secret store. The key is not readable from the
--- API and never appears in a query result.
-select vault.create_secret('re_your_real_key_here', 'resend_api_key');
-```
+The honest tradeoff: this is weaker than Vault, because the value sits
+unencrypted rather than encrypted at rest. Anything holding direct database
+credentials can read it. If Vault appears on the plan later, move the key and
+change the one lookup in `send_nudges`.
 
-If `vault` isn't available on your plan, a private table works — but then the key
-is readable by anything with database access, so prefer Vault.
+Everything — the table, the key, the function and the schedule — is in
+[`supabase/maintenance/nudge_job.sql`](../supabase/maintenance/nudge_job.sql).
+Open it, replace `re_PASTE_YOUR_KEY_HERE` with your real key **keeping the single
+quotes**, and run the whole file. Unquoted is what breaks it: Postgres reads a
+bare key as a column name and answers `42703 column does not exist`.
+
+It starts on a five-minute schedule so you can watch one arrive, and the last
+comment block in the file shows how to move it to hourly.
 
 ## 3. Create the job
 
