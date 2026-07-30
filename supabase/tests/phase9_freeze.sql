@@ -1,0 +1,253 @@
+-- ============================================================================
+-- Phase 9: freeze days
+--
+-- THE ASSERTION THIS SUITE EXISTS FOR
+--
+-- A forgiven day bridges the run and adds nothing to its length.
+--
+-- Everything else here is detail. That one rule is what keeps the tender economy
+-- intact without needing a carefully chosen allowance: the 60-day milestone still
+-- requires 60 real reveals, so no allowance however generous turns freezes into
+-- free money. If a frozen day ever starts counting, the milestone payouts become
+-- purchasable with absence and the Rich List starts ranking patience.
+--
+-- Several assertions here are deliberate duplicates of streakFrom's unit tests.
+-- The streak is computed twice — SQL pays the tender, TypeScript draws the number —
+-- and the failure mode of them drifting apart is a couple told they are on day 12
+-- while being paid for day 4.
+-- ============================================================================
+
+\set ON_ERROR_STOP on
+\timing off
+
+begin;
+
+create or replace function assert(p_ok boolean, p_what text)
+returns void language plpgsql as $$
+begin
+  if not p_ok then raise exception 'FAILED: %', p_what; end if;
+  raise notice 'ok — %', p_what;
+end $$;
+
+\set ada 'a9000000-0000-0000-0000-0000000000a9'
+\set bo  'b9000000-0000-0000-0000-0000000000b9'
+\set pair '99990000-0000-0000-0000-000000000999'
+
+insert into auth.users (id, email, is_anonymous) values
+  (:'ada', 'ada9@example.com', false),
+  (:'bo',  'bo9@example.com',  false);
+insert into public.profiles (id, first_name) values (:'ada', 'Ada'), (:'bo', 'Bo');
+
+-- day_zero 40 days back so day indexes and calendar dates both have room.
+insert into public.pairs (id, time_zone, day_zero, status)
+values (:'pair', 'UTC', current_date - 40, 'active');
+insert into public.pair_members (pair_id, user_id, role) values
+  (:'pair', :'ada', 'inviter'), (:'pair', :'bo', 'invitee');
+
+-- Reveals on days 0,1,2 and 4. Day 3 is the hole.
+insert into public.reveals (pair_id, day_index, question_id, sync_score, payload)
+select :'pair', d, (select id from public.questions limit 1), 80, '{}'::jsonb
+from unnest(array[0, 1, 2, 4]) as d;
+
+
+-- ---------------------------------------------------------------------------
+-- Without a freeze, the gap ends the run
+-- ---------------------------------------------------------------------------
+
+select assert(
+  public.pair_streak(:'pair') = 1,
+  'an unforgiven gap ends the run at the newest day'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- With one, it bridges — and adds nothing
+-- ---------------------------------------------------------------------------
+
+insert into public.streak_freezes (pair_id, day_index, month)
+values (:'pair', 3, date_trunc('month', current_date)::date);
+
+select assert(
+  public.pair_streak(:'pair') = 4,
+  'a forgiven gap bridges the run: four answered days stay one run'
+);
+
+select assert(
+  public.pair_streak(:'pair') <> 5,
+  'AND THE FROZEN DAY DOES NOT COUNT — 60 milestones still need 60 real reveals'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- Two holes, one freeze
+-- ---------------------------------------------------------------------------
+
+insert into public.reveals (pair_id, day_index, question_id, sync_score, payload)
+values (:'pair', 7, (select id from public.questions limit 1), 80, '{}'::jsonb);
+
+-- Days 5 and 6 are now both missing, neither forgiven.
+select assert(
+  public.pair_streak(:'pair') = 1,
+  'a gap wider than the freezes covering it still ends the run'
+);
+
+insert into public.streak_freezes (pair_id, day_index, month)
+values (:'pair', 6, date_trunc('month', current_date)::date);
+
+select assert(
+  public.pair_streak(:'pair') = 1,
+  'and forgiving only one of two adjacent missed days does not bridge it'
+);
+
+insert into public.streak_freezes (pair_id, day_index, month)
+values (:'pair', 5, date_trunc('month', current_date)::date);
+
+select assert(
+  public.pair_streak(:'pair') = 5,
+  'forgiving both bridges it, and still counts only the five answered days'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- Freezes that should change nothing
+-- ---------------------------------------------------------------------------
+
+insert into public.streak_freezes (pair_id, day_index, month)
+values (:'pair', 9, date_trunc('month', current_date)::date);
+
+select assert(
+  public.pair_streak(:'pair') = 5,
+  'a freeze above the newest answered day cannot extend a run past its last answer'
+);
+
+delete from public.streak_freezes where pair_id = :'pair' and day_index = 9;
+
+insert into public.streak_freezes (pair_id, day_index, month)
+values (:'pair', 2, date_trunc('month', current_date)::date);
+
+select assert(
+  public.pair_streak(:'pair') = 5,
+  'and a freeze on a day that was answered anyway changes nothing'
+);
+
+delete from public.streak_freezes where pair_id = :'pair' and day_index = 2;
+
+
+-- ---------------------------------------------------------------------------
+-- The allowance
+-- ---------------------------------------------------------------------------
+
+select assert(public.freeze_allowance() = 2, 'the allowance is two a month');
+
+-- Three already used this month (days 3, 5, 6), so it is spent.
+select assert(
+  public.freezes_left(:'pair') = 0,
+  'freezes_left never goes negative when more exist than the allowance'
+);
+
+delete from public.streak_freezes where pair_id = :'pair' and day_index in (5, 6);
+select assert(
+  public.freezes_left(:'pair') = 1,
+  'and reports what is left of the month'
+);
+
+-- Last month's spending must not eat this month's allowance.
+insert into public.streak_freezes (pair_id, day_index, month)
+values (:'pair', 20, (date_trunc('month', current_date) - interval '1 month')::date),
+       (:'pair', 21, (date_trunc('month', current_date) - interval '1 month')::date);
+
+select assert(
+  public.freezes_left(:'pair') = 1,
+  'a previous month''s freezes do not count against this month'
+);
+
+delete from public.streak_freezes where pair_id = :'pair' and day_index in (20, 21);
+
+
+-- ---------------------------------------------------------------------------
+-- settle_freezes: what it grants, and what it refuses to
+-- ---------------------------------------------------------------------------
+
+delete from public.streak_freezes where pair_id = :'pair';
+delete from public.reveals where pair_id = :'pair';
+
+-- Answered day 0, then day 1 missed and closed, then answered day 2.
+insert into public.reveals (pair_id, day_index, question_id, sync_score, payload)
+select :'pair', d, (select id from public.questions limit 1), 80, '{}'::jsonb
+from unnest(array[0, 2]) as d;
+
+select assert(public.settle_freezes(:'pair') = 1, 'settle forgives the one closed gap');
+select assert(
+  exists (select 1 from public.streak_freezes where pair_id = :'pair' and day_index = 1),
+  'and forgives the right day'
+);
+select assert(public.pair_streak(:'pair') = 2, 'so the run holds at two answered days');
+
+select assert(public.settle_freezes(:'pair') = 0, 'running it again grants nothing — idempotent');
+
+-- It must not reach a day that is still answerable.
+delete from public.streak_freezes where pair_id = :'pair';
+delete from public.reveals where pair_id = :'pair';
+insert into public.reveals (pair_id, day_index, question_id, sync_score, payload)
+values (:'pair', public.pair_day_index(:'pair'), (select id from public.questions limit 1), 80, '{}'::jsonb);
+
+select assert(
+  (select count(*) from public.streak_freezes
+    where pair_id = :'pair' and day_index >= public.pair_day_index(:'pair') - 1) = 0
+  or public.pair_day_is_open(:'pair', public.pair_day_index(:'pair') - 1) is false,
+  'settle never forgives a day whose window is still open'
+);
+
+-- It must stop at the first gap it cannot cover rather than spending on history.
+delete from public.streak_freezes where pair_id = :'pair';
+delete from public.reveals where pair_id = :'pair';
+-- Answered 0, then days 1..5 all missed and closed, then answered 6.
+insert into public.reveals (pair_id, day_index, question_id, sync_score, payload)
+select :'pair', d, (select id from public.questions limit 1), 80, '{}'::jsonb
+from unnest(array[0, 6]) as d;
+
+select assert(public.settle_freezes(:'pair') = 2, 'settle spends at most the allowance');
+select assert(
+  (select count(*) from public.streak_freezes where pair_id = :'pair') = 2,
+  'and no more than that exists'
+);
+select assert(
+  (select min(day_index) from public.streak_freezes where pair_id = :'pair') = 4,
+  'spent on the days nearest the run, not on the oldest — a freeze below an '
+  'unbridgeable gap changes no number'
+);
+select assert(
+  public.pair_streak(:'pair') = 1,
+  'the run is still broken, because two freezes cannot cover five missed days'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- Leakage
+-- ---------------------------------------------------------------------------
+
+set sync.uid = 'a9000000-0000-0000-0000-0000000000a9';
+set role authenticated;
+
+select assert(
+  (select count(*) from public.streak_freezes) = 2,
+  'a member can read their own pairing''s freezes, so the UI can explain the number'
+);
+
+do $$
+begin
+  insert into public.streak_freezes (pair_id, day_index, month)
+  values ('99990000-0000-0000-0000-000000000999', 30, current_date);
+  raise exception 'FAILED: a user minted their own freeze';
+exception when insufficient_privilege or check_violation then
+  raise notice 'ok — there is no API path to mint a freeze';
+end $$;
+
+reset role;
+
+select assert(
+  has_function_privilege('anon', 'public.settle_freezes(uuid)', 'execute') is false,
+  'and settle is not reachable anonymously'
+);
+
+rollback;

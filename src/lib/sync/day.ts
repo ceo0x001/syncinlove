@@ -151,14 +151,34 @@ export function formatCountdown(totalSeconds: number): string {
  *
  * `completedDayIndexes` is every day this pair both answered, in any order.
  */
-export function streakFrom(completedDayIndexes: number[]): number {
+export function streakFrom(
+  completedDayIndexes: number[],
+  frozenDayIndexes: number[] = [],
+): number {
   if (completedDayIndexes.length === 0) return 0
 
-  const days = [...new Set(completedDayIndexes)].sort((a, b) => b - a)
-  let streak = 1
-  for (let i = 1; i < days.length; i++) {
-    if (days[i] === days[i - 1] - 1) streak++
-    else break
+  const done = new Set(completedDayIndexes)
+  const frozen = new Set(frozenDayIndexes)
+  const top = Math.max(...done)
+
+  /**
+   * Walk down from the newest answered day and stop at the first day that is
+   * neither answered nor forgiven.
+   *
+   * Rewritten from a scan over the sorted answered days, which could not express a
+   * forgiven gap — it broke at the first non-consecutive pair and had no way to
+   * know the hole was covered.
+   *
+   * A frozen day advances the walk and does NOT increment the count. That is the
+   * rule the whole feature rests on: a freeze forgives a gap, it never substitutes
+   * for an answer, so the milestone at 60 still needs 60 real days. It must match
+   * pair_streak in 0019 exactly — the SQL pays the tender and this draws the
+   * number, and the two disagreeing is a support ticket nobody can diagnose.
+   */
+  let streak = 0
+  for (let day = top; day >= 0; day -= 1) {
+    if (done.has(day)) streak += 1
+    else if (!frozen.has(day)) break
   }
   return streak
 }

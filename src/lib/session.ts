@@ -86,6 +86,16 @@ export interface InviteInfo {
   declined: boolean
 }
 
+export interface FreezeStatus {
+  /** Freezes per calendar month. Read from the database, not duplicated here. */
+  allowance: number
+  left: number
+  /** Day indexes forgiven this month, newest first. */
+  usedDays: number[]
+  /** The most recently forgiven day, ever. Drives "we covered a missed day". */
+  lastDay: number | null
+}
+
 export interface OpenDay {
   dayIndex: number
   question: Question
@@ -165,6 +175,15 @@ export interface HomeState {
   partner: Partner | null
   pair: PairInfo | null
   invite: InviteInfo | null
+  /**
+   * Freeze days, so the streak can explain itself.
+   *
+   * Null when the read fails or the migration is not applied. A missing freeze
+   * status must cost the caller a sentence, never the streak — see the core/extras
+   * split in getMe for why this project no longer lets one absent column take a
+   * whole screen down.
+   */
+  freezes: FreezeStatus | null
   /** Newest first. Usually one; two between midnight and 06:00 pair-local. */
   openDays: OpenDay[]
   /** Every day both partners completed, for the streak. */
@@ -298,6 +317,7 @@ export async function loadHome(): Promise<HomeState | null> {
       partner: null,
       pair: null,
       invite: null,
+      freezes: null,
       openDays: [],
       completedDays: [],
       streak: 0,
@@ -316,11 +336,14 @@ export async function loadHome(): Promise<HomeState | null> {
   const now = new Date()
   const openIndexes = openDayIndexes(now, pair.dayZero, pair.timeZone)
 
-  const [membersRes, myAnswersRes, revealsRes, inviteRes] = await Promise.all([
+  const [membersRes, myAnswersRes, revealsRes, freezeRowsRes, inviteRes] = await Promise.all([
     supabase.from('pair_members').select('user_id, role').eq('pair_id', pair.id).is('left_at', null),
     // RLS scopes this to my own rows, so it is exactly "days I have answered".
     supabase.from('answers').select('day_index').eq('pair_id', pair.id),
     supabase.from('reveals').select('day_index').eq('pair_id', pair.id),
+    // Every forgiven day, not just this month's: the streak walk needs any freeze
+    // that sits inside the current run, and a run can straddle a month boundary.
+    supabase.from('streak_freezes').select('day_index').eq('pair_id', pair.id),
     supabase
       .from('invites')
       .select('nonce, expires_at, claimed_at, revoked_at, declined_at')
@@ -389,6 +412,17 @@ export async function loadHome(): Promise<HomeState | null> {
 
   const completedDays = [...revealedDays].sort((a, b) => a - b)
 
+  /**
+   * Forgiven days. An absent table means no freezes, never a broken page — this
+   * query fails on any database where 0019 has not been applied, and the streak has
+   * to keep working there.
+   */
+  const frozenDays = (freezeRowsRes.data ?? []).map((r) => Number(r.day_index))
+
+  const thisMonth = frozenDays.length
+    ? await loadFreezeStatus(supabase, frozenDays)
+    : { allowance: 2, left: 2, usedDays: [], lastDay: null }
+
   return {
     me,
     partner,
@@ -396,9 +430,46 @@ export async function loadHome(): Promise<HomeState | null> {
     invite,
     openDays,
     completedDays,
-    streak: streakFrom(completedDays),
+    freezes: thisMonth,
+    streak: streakFrom(completedDays, frozenDays),
     secondsToRollover: secondsUntilRollover(now, pair.timeZone),
     economy: await loadEconomy(pair.id, me, partnerId),
+  }
+}
+
+/**
+ * The month's allowance, from the database rather than recomputed here.
+ *
+ * The month boundary belongs to Postgres: it is the one that granted the freezes,
+ * and deriving it a second time in TypeScript from a day index and day_zero is how
+ * the two drift apart at midnight on the first.
+ */
+async function loadFreezeStatus(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  frozenDays: number[],
+): Promise<FreezeStatus> {
+  const { data, error } = await supabase.rpc('freeze_status')
+  if (error || !data) {
+    // 0019 not applied, or the read failed. Report the freezes we can see and an
+    // allowance we cannot verify, rather than claiming none exist.
+    return {
+      allowance: 2,
+      left: 2,
+      usedDays: [],
+      lastDay: frozenDays.length ? Math.max(...frozenDays) : null,
+    }
+  }
+  const row = data as {
+    allowance: number
+    left: number
+    used_days: number[] | null
+    last_day: number | null
+  }
+  return {
+    allowance: Number(row.allowance ?? 2),
+    left: Number(row.left ?? 0),
+    usedDays: row.used_days ?? [],
+    lastDay: row.last_day ?? null,
   }
 }
 

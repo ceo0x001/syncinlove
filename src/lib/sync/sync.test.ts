@@ -597,6 +597,47 @@ describe('streakFrom', () => {
     expect(streakFrom([7])).toBe(1)
   })
 
+  /**
+   * Freeze days.
+   *
+   * These mirror the assertions in phase9_freeze.sql against pair_streak, on
+   * purpose. The streak is computed twice — here for the number on screen, in SQL
+   * for the tender that gets paid — and the two disagreeing produces a couple
+   * being told they are on day 12 while being paid for day 4.
+   */
+  it('steps over a forgiven gap and keeps the run going', () => {
+    // Day 3 missed and forgiven: 0,1,2 and 4 are one run of four answered days.
+    expect(streakFrom([0, 1, 2, 4], [3])).toBe(4)
+  })
+
+  it('does not count a forgiven day toward the streak', () => {
+    // The whole economy rests on this. Four answered days is four, never five.
+    expect(streakFrom([0, 1, 2, 4], [3])).toBe(4)
+    expect(streakFrom([0, 1, 2, 4], [3])).not.toBe(5)
+  })
+
+  it('still breaks on a gap that was not forgiven', () => {
+    // Days 3 and 4 missed, only 3 covered — 4 still ends the run.
+    expect(streakFrom([0, 1, 2, 5], [3])).toBe(1)
+  })
+
+  it('bridges two adjacent forgiven days', () => {
+    expect(streakFrom([0, 1, 5], [2, 3, 4])).toBe(3)
+  })
+
+  it('ignores a freeze on a day that was answered anyway', () => {
+    expect(streakFrom([0, 1, 2, 3], [2])).toBe(4)
+  })
+
+  it('ignores freezes above the newest answered day', () => {
+    // A freeze cannot extend a run past its own last answer.
+    expect(streakFrom([0, 1, 2], [3, 4])).toBe(3)
+  })
+
+  it('is unchanged when no freezes are passed', () => {
+    expect(streakFrom([0, 1, 2, 5, 6])).toBe(2)
+  })
+
   it('ignores duplicates', () => {
     expect(streakFrom([4, 4, 5, 5, 6])).toBe(3)
   })

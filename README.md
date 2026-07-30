@@ -5,10 +5,14 @@ honestly for themselves, once guessing what the other will say. Neither sees
 anything until both have submitted. Then it opens, with a score for how well
 they read each other.
 
-Production domain: **syncinlove.us**
+Production domain: **syncin.love** — served on **www.syncin.love**. The apex
+308-redirects there, and `net.http_post` does not follow redirects, so anything
+server-side (pg_cron jobs, health checks, curl) must use the `www` host or it will
+silently receive the redirect and stop.
 
-**Phase 1 of 5.** The loop works end to end. Tender, menus, letters and the
-Rich List come later — see [Roadmap](#roadmap).
+**Phases 1–4 shipped; phase 5 is all but done.** The loop, the reveal, tender and
+menus, the letter vault and the Rich List are live, along with a good deal that was
+never on the plan — see [Roadmap](#roadmap) for what is actually left.
 
 ## Brand
 
@@ -66,13 +70,21 @@ account. Without it, the first screen fails with a clear error.
 
 ### 3. Run the SQL
 
-Paste these into the **SQL editor**, in order:
+Paste into the **SQL editor**, in order:
 
-1. `supabase/migrations/0001_phase1_loop.sql`
+1. Every file in `supabase/migrations/`, in filename order — `0001` through the
+   highest number present. They are not idempotent as a set and later ones assume
+   earlier ones; running them out of order fails in ways that are tedious to unpick.
 2. `supabase/seed/questions.sql`
 
-The second is generated from the TypeScript question bank. After editing
-`src/lib/questions/bank.ts`, run `npm run seed:questions` and paste it again.
+The seed is generated from the TypeScript question bank. After editing anything in
+`src/lib/questions/bank/`, run `npm run seed:questions` and paste it again.
+
+Two of these need a step after the SQL: `0010` wants `pg_cron` and `pg_net` enabled
+plus a Resend key in `private_config` ([docs/nudges-setup.md](docs/nudges-setup.md)),
+and `0017` wants VAPID keys and a relay secret
+([docs/push-setup.md](docs/push-setup.md)). Both are inert until then, deliberately —
+a half-configured channel must not be able to break one that already works.
 
 ### 4. Make the email code a code
 
@@ -172,8 +184,8 @@ Scoring calibration, the pair calendar, the grace window, streaks, bank integrit
 ### Clearing out test data
 
 [supabase/maintenance/cleanup.sql](supabase/maintenance/cleanup.sql) has an
-inventory query, the orphaned-anonymous-account sweep (the Phase 5 hygiene job,
-manual until then), and a full reset. Run the inventory first — the destructive
+inventory query, the orphaned-anonymous-account sweep (still manual), and a full
+reset. Run the inventory first — the destructive
 parts are commented out deliberately.
 
 ---
@@ -222,7 +234,7 @@ otherwise every invite generated on a preview would point at localhost.
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | the Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon / publishable key |
-| `NEXT_PUBLIC_SITE_URL` | `https://syncinlove.us` |
+| `NEXT_PUBLIC_SITE_URL` | `https://www.syncin.love` — the www host, per the note at the top |
 | `INVITE_SECRET` | a **different** value from local, so dev and production invite links stay isolated |
 
 ### If a deploy is "blocked because the commit author did not have contributing access"
@@ -259,7 +271,7 @@ records pointing at it:
 | `A` | `@` | `76.76.21.21` |
 | `CNAME` | `www` | `cname.vercel-dns.com` |
 
-Check propagation with `vercel domains inspect syncinlove.us`.
+Check propagation with `vercel domains inspect syncin.love`.
 
 ## Email
 
@@ -268,17 +280,17 @@ you edit templates at all — which matters, because the Change Email template
 needs `{{ .Token }}` to send a numeric code rather than only a link. Custom
 SMTP unlocks both.
 
-1. **Resend** — create an account, add `syncinlove.us` as a sending domain, and
+1. **Resend** — create an account, add `syncin.love` as a sending domain, and
    put the SPF/DKIM records it gives you into Namecheap. Then create an API key.
 2. **Supabase → Project Settings → Authentication → SMTP Settings**, enable
    custom SMTP:
    - Host `smtp.resend.com`, Port `465`
    - Username `resend`, Password *the Resend API key*
-   - Sender `hello@syncinlove.us`, Name `SyncinLove`
+   - Sender `noreply@syncin.love`, Name `SyncinLove`
 3. **Supabase → Authentication → Emails → Change Email Address** — the template
    is now editable. Make sure the body includes `{{ .Token }}`.
 4. **Supabase → Authentication → URL Configuration** — set Site URL to
-   `https://syncinlove.us`.
+   `https://www.syncin.love`.
 
 Until step 3 is done, the email claim sends a link instead of a code. That works
 when it opens in the same browser, and silently doesn't when it doesn't — which
@@ -293,10 +305,20 @@ use this, not optional.
 | Phase | What lands | Status |
 |---|---|---|
 | 1 | The loop: answer, guess, invite, gated reveal, sync score, streak | **done** |
-| 2 | The reveal as a showpiece, plus the share card | next |
-| 3 | Tender: wallets, menus, purchase and refund | |
-| 4 | Letter vault, export, burn everything, unpair | |
-| 5 | Nudges, freeze days, question bank to 90+, the Rich List | |
+| 2 | The reveal as a showpiece, plus the share card | **done** |
+| 3 | Tender: wallets, menus, purchase and refund | **done** |
+| 4 | Letter vault, export, burn everything, unpair | **done** |
+| 5 | Nudges, freeze days, question bank to 90+, the Rich List | **freeze days done; bank at 84** |
+
+Built since, none of it on the original plan: the admin dashboard, web push with a
+signing relay, PWA install and haptics, a history view, sign-in with an emailed
+code, invite reissue and decline, and the How Sync Works guide.
+
+**The one number still short of the plan is the question bank: 84 against the 90+
+above.** Worth knowing that 90 was never the real target — a repeat-free two years
+needs roughly 730, so measured against the actual goal the bank is barely started.
+Light and logistics questions are the binding constraint; there is no shortage of
+heavy or intimate ones.
 
 Phase 3 note: record earnings as **ledger entries, not a balance counter**. The
 Rich List ranks on tender *earned*, never held — ranking on balance would

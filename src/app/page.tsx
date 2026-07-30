@@ -190,7 +190,8 @@ function NoPair() {
 }
 
 function Hub({ home }: { home: HomeState }) {
-  const { me, partner, invite, openDays, streak, secondsToRollover, economy, completedDays } = home
+  const { me, partner, invite, openDays, streak, secondsToRollover, economy, completedDays, freezes } =
+    home
 
   const today = openDays.find((day) => !day.isGrace)
   const grace = openDays.find((day) => day.isGrace)
@@ -382,6 +383,23 @@ function Hub({ home }: { home: HomeState }) {
                 </>
               ) : null}
               {today ? `Tomorrow’s question in ${formatCountdown(secondsToRollover)}.` : null}
+            </p>
+          ) : null}
+
+          {/*
+            A streak that survived a day nobody answered has to say so.
+
+            The number quietly not resetting is worse than the number resetting: the
+            next conclusion is that it's arbitrary, and a count nobody trusts is not
+            worth paying tender against. So this states the mechanism the one time it
+            actually fires, and stays silent otherwise.
+          */}
+          {freezes && freezes.lastDay !== null && streak > 0 ? (
+            <p>
+              A missed day is covered, so the run holds.{' '}
+              {freezes.left > 0
+                ? `${freezes.left} more ${freezes.left === 1 ? 'day' : 'days'} covered this month.`
+                : 'None left this month — the next missed day ends it.'}
             </p>
           ) : null}
           {/*

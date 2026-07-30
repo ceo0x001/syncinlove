@@ -462,6 +462,20 @@ export async function declinePurchase(purchaseId: string): Promise<ActionResult>
 export async function settleOpenDays(): Promise<void> {
   const supabase = await createClient()
   await supabase.rpc('settle_open_days')
+
+  /**
+   * Freezes, in the same breath.
+   *
+   * Has to happen before anything reads the streak, and it has to happen without
+   * anybody choosing it — a freeze you must remember to spend fails in exactly the
+   * situation it exists for. Nobody opens the app on the day they were too ill to
+   * open the app.
+   *
+   * Errors are swallowed for the same reason settle_open_days' are: this runs on
+   * every home-page load, and a pairing that cannot be settled must still be able
+   * to reach its question.
+   */
+  await supabase.rpc('settle_freezes')
 }
 
 /* ---------------------------------------------------------------------------
