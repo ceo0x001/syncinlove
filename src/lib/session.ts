@@ -750,7 +750,11 @@ export async function loadAdmin(search?: string): Promise<AdminData | null> {
     await Promise.all([
       supabase.rpc('admin_overview'),
       supabase.rpc('admin_retention'),
-      supabase.rpc('admin_accounts', { p_search: search ?? null, p_limit: 200 }),
+      // 500 is the ceiling admin_accounts enforces. Filtering and paging then
+      // happen in the browser, which keeps an operator's scanning instant rather
+      // than a round trip per page. Past roughly 500 accounts this wants moving
+      // server-side with an offset — the payload, not the logic, is the limit.
+      supabase.rpc('admin_accounts', { p_search: search ?? null, p_limit: 500 }),
       supabase.rpc('admin_economy'),
       supabase.rpc('admin_nudges'),
     ])

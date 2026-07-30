@@ -30,21 +30,92 @@ import { Button, Notice } from './ui'
  * path that does not exist — a button that cannot work is worse than no button.
  */
 
-const PAGE = 12
+/**
+ * 50 a page.
+ *
+ * Filtering and sorting happen here rather than on the server, so narrowing a
+ * list is instant instead of a round trip. The trade is that only the first 500
+ * accounts are in the browser to filter — fine now, and the point at which this
+ * wants server-side offsets is when 500 is no longer everybody.
+ */
+const PAGE = 50
+
+type StatusFilter = 'all' | 'active' | 'unconfirmed' | 'suspended' | 'admin' | 'listed'
+type PairFilter = 'all' | 'paired' | 'waiting' | 'none'
+type Sort = 'newest' | 'oldest' | 'days' | 'active'
 
 export function AdminAccounts({ accounts }: { accounts: AdminAccount[] }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirming, setConfirming] = useState<'delete' | 'suspend' | null>(null)
   const [page, setPage] = useState(0)
+  const [status, setStatus] = useState<StatusFilter>('all')
+  const [pairing, setPairing] = useState<PairFilter>('all')
+  const [sort, setSort] = useState<Sort>('newest')
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  const pages = Math.max(1, Math.ceil(accounts.length / PAGE))
+  const filtered = useMemo(() => {
+    const matchesStatus = (a: AdminAccount) => {
+      switch (status) {
+        // "Active" means usable: confirmed and not stopped. An unconfirmed
+        // account is the one an operator most often needs to find, so it gets
+        // its own filter rather than being folded into "not active".
+        case 'active':
+          return a.confirmed && !a.suspendedAt
+        case 'unconfirmed':
+          return !a.confirmed
+        case 'suspended':
+          return Boolean(a.suspendedAt)
+        case 'admin':
+          return a.isAdmin
+        case 'listed':
+          return a.optedIn
+        default:
+          return true
+      }
+    }
+
+    const matchesPairing = (a: AdminAccount) => {
+      switch (pairing) {
+        case 'paired':
+          return Boolean(a.partnerName)
+        case 'waiting':
+          return Boolean(a.pairId) && !a.partnerName
+        case 'none':
+          return !a.pairId
+        default:
+          return true
+      }
+    }
+
+    const rows = accounts.filter((a) => matchesStatus(a) && matchesPairing(a))
+
+    const byDate = (x: string | null) => (x ? new Date(x).getTime() : 0)
+
+    return [...rows].sort((a, b) => {
+      switch (sort) {
+        case 'oldest':
+          return byDate(a.createdAt) - byDate(b.createdAt)
+        case 'days':
+          return b.completedDays - a.completedDays
+        case 'active':
+          // Never-answered last rather than first: an operator sorting by
+          // activity is looking for who is active, and a wall of nulls on top
+          // buries the answer.
+          return byDate(b.lastActive) - byDate(a.lastActive)
+        default:
+          return byDate(b.createdAt) - byDate(a.createdAt)
+      }
+    })
+  }, [accounts, status, pairing, sort])
+
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE))
+  const current = Math.min(page, pages - 1)
   const shown = useMemo(
-    () => accounts.slice(page * PAGE, page * PAGE + PAGE),
-    [accounts, page],
+    () => filtered.slice(current * PAGE, current * PAGE + PAGE),
+    [filtered, current],
   )
 
   function run(action: () => Promise<{ error?: string; ok?: boolean }>, done?: string) {
@@ -81,6 +152,13 @@ export function AdminAccounts({ accounts }: { accounts: AdminAccount[] }) {
     })
   }
 
+  function setFilter<T>(set: (v: T) => void) {
+    return (value: T) => {
+      set(value)
+      setPage(0)
+    }
+  }
+
   function toggle(id: string) {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -105,6 +183,51 @@ export function AdminAccounts({ accounts }: { accounts: AdminAccount[] }) {
     <div className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
       {error ? <Notice tone="error">{error}</Notice> : null}
       {note ? <Notice>{note}</Notice> : null}
+
+      {/* ---- Filters. Above the bulk bar so these never shift as you select. ---- */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <FilterGroup
+          label="Status"
+          value={status}
+          onChange={setFilter(setStatus)}
+          options={[
+            ['all', 'All'],
+            ['active', 'Active'],
+            ['unconfirmed', 'Unconfirmed'],
+            ['suspended', 'Suspended'],
+            ['admin', 'Admins'],
+            ['listed', 'On the list'],
+          ]}
+        />
+        <FilterGroup
+          label="Pairing"
+          value={pairing}
+          onChange={setFilter(setPairing)}
+          options={[
+            ['all', 'All'],
+            ['paired', 'Paired'],
+            ['waiting', 'Waiting'],
+            ['none', 'None'],
+          ]}
+        />
+        <FilterGroup
+          label="Sort"
+          value={sort}
+          onChange={setFilter(setSort)}
+          options={[
+            ['newest', 'Newest'],
+            ['oldest', 'Oldest'],
+            ['days', 'Most days'],
+            ['active', 'Last answered'],
+          ]}
+        />
+      </div>
+
+      {filtered.length !== accounts.length ? (
+        <p className="t-small text-ink-faint">
+          {filtered.length} of {accounts.length} shown by these filters.
+        </p>
+      ) : null}
 
       {/* ---- Bulk bar. Only present when it has something to act on. ---- */}
       {selected.size > 0 ? (
@@ -177,6 +300,13 @@ export function AdminAccounts({ accounts }: { accounts: AdminAccount[] }) {
             </Button>
           </div>
         </div>
+      ) : null}
+
+      {filtered.length === 0 ? (
+        <Notice>
+          Nothing matches those filters. There are {accounts.length} accounts in
+          total.
+        </Notice>
       ) : null}
 
       {/* ---- Desk: the table ---- */}
@@ -313,23 +443,24 @@ export function AdminAccounts({ accounts }: { accounts: AdminAccount[] }) {
         ))}
       </div>
 
-      {/* ---- Pagination ---- */}
-      {pages > 1 ? (
-        <div className="flex items-center justify-between gap-4">
-          <p className="t-small tabular text-ink-faint">
-            {page * PAGE + 1}–{Math.min((page + 1) * PAGE, accounts.length)} of{' '}
-            {accounts.length}
-          </p>
-          <div className="flex gap-2">
-            <Page disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-              Previous
-            </Page>
-            <Page disabled={page >= pages - 1} onClick={() => setPage((p) => p + 1)}>
-              Next
-            </Page>
-          </div>
+      {/* ---- Pagination. Always here, bounded rather than hidden, so the
+              controls do not appear and vanish as filters change. ---- */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <p className="t-small tabular text-ink-faint">
+          {filtered.length === 0
+            ? 'Nothing to show'
+            : `${current * PAGE + 1}–${Math.min((current + 1) * PAGE, filtered.length)} of ${filtered.length}`}
+          {pages > 1 ? ` · page ${current + 1} of ${pages}` : ''}
+        </p>
+        <div className="flex gap-2">
+          <Page disabled={current === 0} onClick={() => setPage(current - 1)}>
+            Previous
+          </Page>
+          <Page disabled={current >= pages - 1} onClick={() => setPage(current + 1)}>
+            Next
+          </Page>
         </div>
-      ) : null}
+      </div>
     </div>
   )
 }
@@ -510,6 +641,48 @@ function Action({
     >
       {children}
     </button>
+  )
+}
+
+/**
+ * A row of chips rather than a <select>.
+ *
+ * The states worth filtering by are the point of the screen — unconfirmed,
+ * suspended, waiting — and a closed dropdown hides which one is active behind a
+ * click. Chips show the current filter and every alternative at once, which is
+ * what makes them worth the space here and not elsewhere in the app.
+ */
+function FilterGroup<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string
+  value: T
+  onChange: (value: T) => void
+  options: [T, string][]
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="t-label text-ink-faint">{label}</span>
+      {options.map(([key, text]) => (
+        <button
+          key={key}
+          type="button"
+          aria-pressed={value === key}
+          onClick={() => onChange(key)}
+          className={
+            'press t-small whitespace-nowrap rounded-full border px-3 py-1.5 ' +
+            (value === key
+              ? 'border-accent/40 bg-accent-wash text-ink'
+              : 'border-hairline bg-paper-raised text-ink-muted hover:text-ink')
+          }
+        >
+          {text}
+        </button>
+      ))}
+    </div>
   )
 }
 
