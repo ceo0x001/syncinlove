@@ -83,7 +83,23 @@ export async function startSession(
   // Attach the address BEFORE writing a profile or a pairing, so an address that
   // already belongs to somebody leaves nothing behind — no half-made account, no
   // stray pairing. The profile-less anonymous user is swept by the Phase 5 job.
-  const { error: emailError } = await supabase.auth.updateUser({ email })
+  /**
+   * Skip it when the address is already theirs and confirmed.
+   *
+   * updateUser rejects setting an email to one that is already registered — and on
+   * a signed-in account, "already registered" includes its own. Running it anyway
+   * turned every returning user into the error path below, which is how somebody
+   * with a perfectly good account was told to sign in to the account they were
+   * already signed in to.
+   */
+  const alreadyMine =
+    !user.is_anonymous &&
+    typeof user.email === 'string' &&
+    user.email.toLowerCase() === email
+
+  const { error: emailError } = alreadyMine
+    ? { error: null as null }
+    : await supabase.auth.updateUser({ email })
 
   if (emailError) {
     const message = emailError.message.toLowerCase()
@@ -270,6 +286,52 @@ export async function verifyClaimCode(
 
   revalidatePath('/')
   return { ok: true }
+}
+
+/**
+ * Accept an invite as somebody who already has an account.
+ *
+ * This exists because the only route in was startSession, which is signup, and
+ * signup attaches an email before it claims anything. For a person who already has
+ * an account that ordering is fatal: updateUser({email}) reports their own address
+ * as "already registered", startSession returns "that address already has an
+ * account, sign in instead", and claim_invite is never reached.
+ *
+ * The effect was that anybody with an account could not accept an invitation. Not a
+ * rare case — it is every returning user, every partner who signed up before being
+ * invited, and every inviter checking their own link. They ended up making a pairing
+ * of their own instead, which then blocked the real one.
+ *
+ * So this does the one thing that is actually being asked for. No name, because
+ * they have one. No email, because it is already attached and confirmed. Just the
+ * claim, with the database's own rules deciding whether it may happen.
+ */
+export async function joinWithInvite(token: string): Promise<ActionResult> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Sign in first, then open the link again.' }
+
+  const { error } = await supabase.rpc('claim_invite', {
+    p_token_hash: hashToken(token),
+  })
+
+  if (error) {
+    // P0008 is the one worth translating; the rest are already plain enough.
+    if (error.code === 'P0008') {
+      return {
+        error:
+          'You’re already synced with someone. Sync works one pairing at a time — ' +
+          'you’d need to end that one in Settings before joining another.',
+      }
+    }
+    return { error: error.message }
+  }
+
+  revalidatePath('/')
+  redirect('/')
 }
 
 /** The 24-hour undo when an invite link reached the wrong person. */

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { ClaimEmail } from '@/components/claim-email'
 import { DeclineInvite, SayNothing } from '@/components/decline-invite'
 import { EntryForm } from '@/components/entry-form'
+import { JoinPairing } from '@/components/join-pairing'
 import { SetupNotice } from '@/components/setup-notice'
 import { Button, Card, Notice, Screen, Wordmark } from '@/components/ui'
 import { hashToken } from '@/lib/invite/token'
@@ -175,27 +176,43 @@ export default async function JoinPage({
     )
   }
 
-  // Signed in already, with no pairing of their own — claim without re-asking
-  // for a name they've already given.
+  /**
+   * Signed in, with an account already. One button.
+   *
+   * This rendered the signup form until today, which could never work: signup
+   * attaches an email before claiming, and attaching an address that is already
+   * yours fails, so claim_invite was never reached. Everybody who already had an
+   * account was told to sign in to the account they were signed in to — and the
+   * usual escape was to go to Sync, be offered "invite a partner", and make a
+   * pairing of their own, which then blocked the real invitation permanently.
+   *
+   * Note this branch is reached with a pairing of their own too, as long as it has
+   * no partner in it. That is deliberate: claim_invite trades an empty pending pair
+   * for this one, which is exactly the recovery somebody in that hole needs.
+   */
   if (me?.firstName) {
+    const mine = home?.pair
     return (
       <Frame title={`${inviter} wants to sync with you.`}>
         <div className="stack" style={{ ['--stack-gap' as string]: '1.5rem' }}>
           <p className="t-body text-ink-muted">
-            One question a day. You each answer it twice — once for yourself, once as a
-            guess at the other. Neither of you sees anything until you both have.
+            One question a day. You each answer it twice &mdash; once for yourself, once
+            as a guess at the other. Neither of you sees anything until you both have.
           </p>
-          <EntryForm inviteToken={decodeURIComponent(token)} inviterFirstName={inviter} />
-          <p className="t-small text-ink-faint">
-            Signed in as {me.firstName}. If that isn&rsquo;t the account you meant,{' '}
-            <Link
-              href="/signin"
-              className="text-ink-muted underline decoration-hairline underline-offset-4"
-            >
-              sign in as someone else
-            </Link>{' '}
-            before joining &mdash; a pairing follows the account that claims it.
-          </p>
+
+          {mine ? (
+            <Notice>
+              You have an empty pairing of your own, waiting for somebody. Joining{' '}
+              {inviter} replaces it &mdash; nothing is lost, because nobody ever
+              joined it.
+            </Notice>
+          ) : null}
+
+          <JoinPairing
+            token={decodeURIComponent(token)}
+            inviter={inviter}
+            meFirstName={me.firstName}
+          />
         </div>
       </Frame>
     )
