@@ -41,6 +41,12 @@ export interface Me {
    * the app.
    */
   isAdmin: boolean
+  /**
+   * Set by an admin. Writing is blocked by a trigger in the database; this is
+   * only so the app can say so plainly instead of failing at the last step.
+   */
+  suspendedAt: string | null
+  suspendedReason: string | null
 }
 
 export interface Partner {
@@ -179,7 +185,8 @@ const PROFILE_CORE = 'first_name'
 
 /** Everything else. Nice to have, and never allowed to take the core down. */
 const PROFILE_EXTRAS =
-  'list_display, list_alias, list_opt_in, notify_reminders, notify_partner, notify_requests'
+  'list_display, list_alias, list_opt_in, notify_reminders, notify_partner, notify_requests, ' +
+  'suspended_at, suspended_reason'
 
 /** The signed-in user, or null. Never throws on an absent session. */
 export async function getMe(): Promise<Me | null> {
@@ -249,6 +256,8 @@ export async function getMe(): Promise<Me | null> {
       requests: profile?.notify_requests !== false,
     },
     isAdmin: adminRes.data === true,
+    suspendedAt: (profile?.suspended_at as string | undefined) ?? null,
+    suspendedReason: (profile?.suspended_reason as string | undefined) ?? null,
   }
 }
 
@@ -709,9 +718,14 @@ export interface AdminAccount {
   confirmed: boolean
   isAnonymous: boolean
   isAdmin: boolean
+  suspendedAt: string | null
+  suspendedReason: string | null
   createdAt: string
+  pairId: string | null
   pairStatus: string | null
-  hasPartner: boolean
+  /** Who they are actually with, not merely whether somebody is there. */
+  partnerName: string | null
+  partnerEmail: string | null
   completedDays: number
   lastActive: string | null
   optedIn: boolean
@@ -776,9 +790,13 @@ export async function loadAdmin(search?: string): Promise<AdminData | null> {
         confirmed: a.confirmed === true,
         isAnonymous: a.is_anonymous === true,
         isAdmin: a.is_admin === true,
+        suspendedAt: (a.suspended_at as string) ?? null,
+        suspendedReason: (a.suspended_reason as string) ?? null,
         createdAt: String(a.created_at),
+        pairId: (a.pair_id as string) ?? null,
         pairStatus: (a.pair_status as string) ?? null,
-        hasPartner: a.has_partner === true,
+        partnerName: (a.partner_name as string) ?? null,
+        partnerEmail: (a.partner_email as string) ?? null,
         completedDays: Number(a.completed_days ?? 0),
         lastActive: (a.last_active as string) ?? null,
         optedIn: a.opted_in === true,

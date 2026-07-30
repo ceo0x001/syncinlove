@@ -1,7 +1,12 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { adminDeleteAccount, adminSetAdmin } from '@/app/actions'
+import {
+  adminDeleteAccount,
+  adminResendCode,
+  adminSetAdmin,
+  adminSetSuspended,
+} from '@/app/actions'
 import type { AdminAccount } from '@/lib/session'
 import { Button, Notice } from './ui'
 
@@ -21,7 +26,18 @@ import { Button, Notice } from './ui'
 export function AdminAccounts({ accounts }: { accounts: AdminAccount[] }) {
   const [confirming, setConfirming] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+
+  function run(action: () => Promise<{ error?: string; ok?: boolean }>, done?: string) {
+    setError(null)
+    setNote(null)
+    startTransition(async () => {
+      const result = await action()
+      if (result.error) setError(result.error)
+      else if (done) setNote(done)
+    })
+  }
 
   function remove(userId: string) {
     setError(null)
@@ -47,6 +63,7 @@ export function AdminAccounts({ accounts }: { accounts: AdminAccount[] }) {
   return (
     <div className="stack" style={{ ['--stack-gap' as string]: '0.625rem' }}>
       {error ? <Notice tone="error">{error}</Notice> : null}
+      {note ? <Notice>{note}</Notice> : null}
 
       {accounts.map((account) => (
         <div
@@ -75,7 +92,11 @@ export function AdminAccounts({ accounts }: { accounts: AdminAccount[] }) {
           </p>
 
           <p className="t-small mt-1 text-ink-faint">
-            {account.hasPartner ? 'paired' : 'no partner'}
+            {account.partnerName
+              ? `with ${account.partnerName}`
+              : account.pairId
+                ? 'waiting on a partner'
+                : 'no pairing'}
             {account.pairStatus ? ` · ${account.pairStatus}` : ''}
             {` · ${account.completedDays} day${account.completedDays === 1 ? '' : 's'}`}
             {account.lastActive
@@ -83,6 +104,19 @@ export function AdminAccounts({ accounts }: { accounts: AdminAccount[] }) {
               : ' · never answered'}
             {account.optedIn ? ' · on the list' : ''}
           </p>
+
+          {account.partnerEmail ? (
+            <p className="t-small break-all text-ink-faint">
+              partner: {account.partnerEmail}
+            </p>
+          ) : null}
+
+          {account.suspendedAt ? (
+            <p className="t-small mt-1 text-[var(--warning)]">
+              Suspended {new Date(account.suspendedAt).toLocaleDateString()}
+              {account.suspendedReason ? ` — ${account.suspendedReason}` : ''}
+            </p>
+          ) : null}
 
           {confirming === account.userId ? (
             <div
@@ -92,7 +126,7 @@ export function AdminAccounts({ accounts }: { accounts: AdminAccount[] }) {
               <p className="t-small text-ink">
                 Delete {account.firstName ?? 'this account'}? Their own answers and
                 tender go with it.{' '}
-                {account.hasPartner
+                {account.partnerName
                   ? 'Their partner keeps everything and is simply unpaired — a shared history is not one person’s to erase.'
                   : 'Nobody else is in their pairing, so it goes too.'}
               </p>
@@ -105,6 +139,33 @@ export function AdminAccounts({ accounts }: { accounts: AdminAccount[] }) {
             </div>
           ) : (
             <div className="mt-3 flex flex-wrap gap-4">
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  run(() =>
+                    adminSetSuspended(account.userId, !account.suspendedAt),
+                  )
+                }
+                className="press t-small text-ink-muted underline decoration-hairline-strong underline-offset-4 hover:text-ink"
+              >
+                {account.suspendedAt ? 'Reinstate' : 'Suspend'}
+              </button>
+              {account.email ? (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() =>
+                    run(
+                      () => adminResendCode(account.email as string),
+                      `A sign-in code is on its way to ${account.email}.`,
+                    )
+                  }
+                  className="press t-small text-ink-muted underline decoration-hairline-strong underline-offset-4 hover:text-ink"
+                >
+                  Send sign-in code
+                </button>
+              ) : null}
               <button
                 type="button"
                 disabled={pending}

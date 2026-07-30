@@ -32,6 +32,11 @@ export default async function Home() {
   // question, so admin work wants its own account rather than a personal one.
   if (home.me.isAdmin) redirect('/admin')
 
+  // Writing is already blocked in the database, so this exists to say why rather
+  // than to enforce anything. Failing silently at the submit button would leave
+  // somebody thinking the app was broken.
+  if (home.me.suspendedAt) return <Suspended me={home.me} />
+
   if (!home.pair) return <NoPair />
 
   return <Hub home={home} />
@@ -115,6 +120,39 @@ function Welcome() {
             Sign in with your email
           </Link>
         </p>
+      </div>
+    </Screen>
+  )
+}
+
+/**
+ * A suspended account.
+ *
+ * Reading stays open on purpose — the history, and the export. Suspension is
+ * meant to stop somebody, not to confiscate what they already wrote, and the
+ * export is the one thing this app promises unconditionally.
+ */
+function Suspended({ me }: { me: import('@/lib/session').Me }) {
+  return (
+    <Screen>
+      <div className="stack" style={{ ['--stack-gap' as string]: '1.5rem' }}>
+        <Wordmark />
+        <h1 className="t-question text-ink">This account is on hold.</h1>
+        <p className="t-body text-ink-muted">
+          {me.suspendedReason
+            ? `The reason given: ${me.suspendedReason}.`
+            : 'No reason was recorded.'}{' '}
+          You can still read everything you and your person have already done, and
+          you can still download your copy of it — nothing has been taken away.
+          What you can&rsquo;t do for now is answer, write a menu or seal a letter.
+        </p>
+        <p className="t-small text-ink-faint">
+          If you think this is a mistake, reply to any email from us or get in
+          touch and we&rsquo;ll look at it.
+        </p>
+        <Link href="/settings" className="block">
+          <Button variant="quiet">Your settings and export</Button>
+        </Link>
       </div>
     </Screen>
   )

@@ -719,3 +719,45 @@ export async function adminSetAdmin(
   revalidatePath('/admin')
   return { ok: true }
 }
+
+/** Suspend or reinstate. Blocks writing, never reading — see 0013. */
+export async function adminSetSuspended(
+  userId: string,
+  suspend: boolean,
+  reason?: string,
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('admin_set_suspended', {
+    p_user_id: userId,
+    p_suspend: suspend,
+    p_reason: reason ?? null,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin')
+  return { ok: true }
+}
+
+/**
+ * Send somebody a fresh sign-in code.
+ *
+ * Deliberately not impersonation: the code goes to THEIR inbox, so this helps a
+ * person who cannot get back in without giving an admin any way to become them.
+ * It needs no elevated privilege either — it is the same call the sign-in screen
+ * makes, which is why there is no admin_ function behind it.
+ */
+export async function adminResendCode(email: string): Promise<ActionResult> {
+  const supabase = await createClient()
+
+  // Confirm the caller is an admin before mailing anybody on their say-so.
+  const { data: isAdmin } = await supabase.rpc('is_admin')
+  if (isAdmin !== true) return { error: 'Not permitted.' }
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false },
+  })
+  if (error) return { error: friendlyAuthError(error.message) }
+
+  return { ok: true }
+}

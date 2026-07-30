@@ -179,8 +179,12 @@ select assert(
   'and searching by email finds the right person'
 );
 select assert(
-  (select has_partner from public.admin_accounts('alice', 10)),
-  'and reports who actually has a partner'
+  (select partner_name from public.admin_accounts('alice', 10)) = 'Bob',
+  'and names who they are actually paired with'
+);
+select assert(
+  (select partner_email from public.admin_accounts('alice', 10)) = 'bob@example.com',
+  'with an address, so a support request can be matched to a person'
 );
 select assert(
   (select completed_days from public.admin_accounts('alice', 10)) = 3,
@@ -282,5 +286,103 @@ do $$ begin
 exception when sqlstate '22023' then
   raise notice 'ok — the last admin cannot be removed, so nobody gets locked out';
 end $$;
+
+
+-- ---------------------------------------------------------------------------
+-- Suspension
+--
+-- Enforced by trigger rather than by editing each write function, so what
+-- matters is that EVERY write path is closed and every read path stays open.
+-- A suspension that blocks three of four writes is not a suspension, and one
+-- that also blocks reading would be confiscating what somebody already wrote.
+-- ---------------------------------------------------------------------------
+
+set sync.uid = 'aa000000-0000-0000-0000-0000000000aa';
+select public.admin_set_suspended(:'alice', true, 'testing');
+
+select assert(
+  (select suspended_at is not null from public.profiles where id = :'alice'),
+  'an admin can suspend somebody'
+);
+
+set sync.uid = 'bb000000-0000-0000-0000-0000000000bb';   -- Alice, now suspended
+
+select assert(
+  (public.my_suspension() ->> 'suspended')::boolean,
+  'and the app can tell them so'
+);
+select assert(
+  public.my_suspension() ->> 'reason' = 'testing',
+  'with the reason given'
+);
+
+do $$ begin
+  insert into public.answers (pair_id, day_index, question_id, user_id, self_payload, guess_payload)
+  values ('a1110000-0000-0000-0000-00000000a111', 90,
+          (select id from public.questions limit 1),
+          'bb000000-0000-0000-0000-0000000000bb', '{}', '{}');
+  raise exception 'FAILED: a suspended account answered a question';
+exception when sqlstate '42501' then
+  raise notice 'ok — a suspended account cannot answer';
+end $$;
+
+do $$ begin
+  insert into public.menu_items (pair_id, owner_id, title, price)
+  values ('a1110000-0000-0000-0000-00000000a111',
+          'bb000000-0000-0000-0000-0000000000bb', 'something', 1000);
+  raise exception 'FAILED: a suspended account wrote a menu item';
+exception when sqlstate '42501' then
+  raise notice 'ok — a suspended account cannot write a menu';
+end $$;
+
+-- Reading their own history must still work. Suspension stops somebody; it does
+-- not confiscate what they already wrote.
+select assert(
+  (select count(*) from public.reveals
+     where pair_id = 'a1110000-0000-0000-0000-00000000a111') = 3,
+  'but they can still read their own history'
+);
+
+-- The consequences that follow from suspension rather than being separate switches.
+select assert(
+  (select count(*) from public.nudge_queue(0)
+     where user_id = 'bb000000-0000-0000-0000-0000000000bb') = 0,
+  'a suspended account is never nudged'
+);
+
+set sync.uid = 'aa000000-0000-0000-0000-0000000000aa';
+select public.admin_set_suspended(:'alice', false);
+select assert(
+  (select suspended_at is null from public.profiles where id = :'alice'),
+  'and lifting it puts everything back'
+);
+
+do $$ begin
+  perform public.admin_set_suspended('aa000000-0000-0000-0000-0000000000aa', true);
+  raise exception 'FAILED: an admin suspended themselves';
+exception when sqlstate '22023' then
+  raise notice 'ok — an admin cannot suspend their own account';
+end $$;
+
+set sync.uid = 'bb000000-0000-0000-0000-0000000000bb';
+do $$ begin
+  perform public.admin_set_suspended('aa000000-0000-0000-0000-0000000000aa', true);
+  raise exception 'FAILED: a non-admin suspended somebody';
+exception when sqlstate '42501' then
+  raise notice 'ok — a non-admin cannot suspend anybody';
+end $$;
+
+
+-- ---------------------------------------------------------------------------
+-- The pairing is visible, which is what an operator needs for support
+-- ---------------------------------------------------------------------------
+
+set sync.uid = 'aa000000-0000-0000-0000-0000000000aa';
+
+select assert(
+  (select partner_name from public.admin_accounts('alice', 10)) is not null
+  or (select pair_id from public.admin_accounts('alice', 10)) is not null,
+  'the account list shows the pairing, not just whether one exists'
+);
 
 rollback;
