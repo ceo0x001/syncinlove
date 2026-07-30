@@ -186,6 +186,16 @@ export default async function JoinPage({
             guess at the other. Neither of you sees anything until you both have.
           </p>
           <EntryForm inviteToken={decodeURIComponent(token)} inviterFirstName={inviter} />
+          <p className="t-small text-ink-faint">
+            Signed in as {me.firstName}. If that isn&rsquo;t the account you meant,{' '}
+            <Link
+              href="/signin"
+              className="text-ink-muted underline decoration-hairline underline-offset-4"
+            >
+              sign in as someone else
+            </Link>{' '}
+            before joining &mdash; a pairing follows the account that claims it.
+          </p>
         </div>
       </Frame>
     )
@@ -202,9 +212,46 @@ export default async function JoinPage({
 
         <EntryForm inviteToken={decodeURIComponent(token)} inviterFirstName={inviter} />
 
+        {/*
+          The way out for anybody who already has an account.
+          
+          This screen used to offer signing up and nothing else — there was no route
+          to /signin anywhere on it. That is not a missing convenience, it is a trap,
+          and it cost somebody their pairing: open an invite link in a browser without
+          a session and the only available action creates a SECOND account, complete
+          with a fresh profile, leaving the real one behind. Then claim_invite refuses
+          (your own link, or already paired), so you land on "let's set your pairing
+          up" and go round again on an account that isn't yours.
+          
+          It happens constantly and through no fault of the user, because invite links
+          are sent over WhatsApp and open in an in-app browser whose cookies are not
+          Safari's. Being signed in on the phone is not being signed in here.
+        */}
+        <div className="stack" style={{ ['--stack-gap' as string]: '0.5rem' }}>
+          <p className="t-small text-ink-muted">
+            Already using Sync?{' '}
+            <Link
+              href="/signin"
+              className="text-ink underline decoration-hairline-strong underline-offset-4"
+            >
+              Sign in instead
+            </Link>{' '}
+            &mdash; signing up here would start a second account and leave your streak
+            behind.
+          </p>
+          <p className="t-small text-ink-faint">
+            <strong className="font-medium text-ink-muted">
+              If you sent this link yourself,
+            </strong>{' '}
+            you don&rsquo;t need it. Sign in and it&rsquo;s on your own screen, ready to
+            re-send.
+          </p>
+        </div>
+
         <p className="t-small text-ink-faint">
-          No account, no password. If you’re reading this inside another app’s browser,
-          it’s worth opening it in Safari or Chrome first so you stay signed in.
+          No account yet? Then the form above is all it takes &mdash; no password. If
+          you&rsquo;re reading this inside another app&rsquo;s browser, open it in Safari
+          or Chrome first, or you may not stay signed in.
         </p>
       </div>
     </Frame>
