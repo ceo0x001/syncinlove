@@ -675,3 +675,47 @@ export async function verifySignInCode(
   revalidatePath('/')
   redirect('/')
 }
+
+/* ---------------------------------------------------------------------------
+   Admin actions
+
+   Thin wrappers. Every one of these is gated by require_admin() inside the
+   database, not here — the app cannot be trusted to be the only caller, and a
+   check in TypeScript would be advisory rather than enforced.
+   --------------------------------------------------------------------------- */
+
+/** Delete an account. Leaves a real partner's pairing and history intact. */
+export async function adminDeleteAccount(userId: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('admin_delete_account', { p_user_id: userId })
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin')
+  return { ok: true }
+}
+
+/** End a pairing without deleting anybody. */
+export async function adminUnpair(pairId: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('admin_unpair', { p_pair_id: pairId })
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin')
+  return { ok: true }
+}
+
+/** Grant or revoke admin. The database refuses to remove the last one. */
+export async function adminSetAdmin(
+  userId: string,
+  admin: boolean,
+): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('admin_set_admin', {
+    p_user_id: userId,
+    p_admin: admin,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin')
+  return { ok: true }
+}

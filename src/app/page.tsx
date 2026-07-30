@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { ClaimEmail } from '@/components/claim-email'
 import { EntryForm } from '@/components/entry-form'
 import { InvitePanel } from '@/components/invite-panel'
@@ -25,6 +26,12 @@ export default async function Home() {
   const home = await loadHome()
 
   if (!home || !home.me.firstName) return <Welcome />
+
+  // Admins see the panel and nothing else, which is what was asked for. Worth
+  // knowing the consequence: an account with admin cannot reach its own daily
+  // question, so admin work wants its own account rather than a personal one.
+  if (home.me.isAdmin) redirect('/admin')
+
   if (!home.pair) return <NoPair />
 
   return <Hub home={home} />

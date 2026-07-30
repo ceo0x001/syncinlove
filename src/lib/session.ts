@@ -35,6 +35,12 @@ export interface Me {
   listOptIn: boolean
   /** Which nudges they want. Each defaults on, and each is separately refusable. */
   notify: { reminders: boolean; partner: boolean; requests: boolean }
+  /**
+   * Granted in SQL only — there is no write path to the admins table through the
+   * API, so this cannot be self-assigned. Admins see the admin panel instead of
+   * the app.
+   */
+  isAdmin: boolean
 }
 
 export interface Partner {
@@ -184,6 +190,11 @@ export async function getMe(): Promise<Me | null> {
 
   if (!user) return null
 
+  // Its own call rather than part of the profile select: is_admin() reads a table
+  // the app cannot see, and a failure here must never be readable as "is an
+  // admin". Defaults to false on any error.
+  const adminRes = await supabase.rpc('is_admin')
+
   const attempt = await supabase
     .from('profiles')
     .select(`${PROFILE_CORE}, ${PROFILE_EXTRAS}`)
@@ -237,6 +248,7 @@ export async function getMe(): Promise<Me | null> {
       partner: profile?.notify_partner !== false,
       requests: profile?.notify_requests !== false,
     },
+    isAdmin: adminRes.data === true,
   }
 }
 
@@ -659,5 +671,120 @@ export async function loadRichList(
           earned: Number(raw.earned ?? 0),
         }
       : null,
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Admin
+
+   Every read below comes from a SECURITY DEFINER function that checks admin
+   status inside the database. There is no service_role key in this app, so a
+   compromise of the web layer yields the anon key and still cannot reach any of
+   this — and none of these functions returns anything anybody wrote.
+   --------------------------------------------------------------------------- */
+
+export interface AdminOverview {
+  users: number
+  usersConfirmed: number
+  usersAnonymous: number
+  pairsActive: number
+  pairsPending: number
+  pairsEnded: number
+  pairsComplete: number
+  revealsTotal: number
+  revealsToday: number
+  reveals7d: number
+  signups7d: number
+  signups30d: number
+  richListOptedIn: number
+  lettersSealed: number
+  lettersOpened: number
+}
+
+export interface AdminAccount {
+  userId: string
+  firstName: string | null
+  email: string | null
+  pendingEmail: string | null
+  confirmed: boolean
+  isAnonymous: boolean
+  isAdmin: boolean
+  createdAt: string
+  pairStatus: string | null
+  hasPartner: boolean
+  completedDays: number
+  lastActive: string | null
+  optedIn: boolean
+}
+
+export interface AdminData {
+  overview: AdminOverview
+  retention: { milestone: number; pairs: number }[]
+  accounts: AdminAccount[]
+  economy: Record<string, number>
+  nudges: Record<string, unknown>
+}
+
+/** Null when the caller is not an admin, so the page can simply redirect. */
+export async function loadAdmin(search?: string): Promise<AdminData | null> {
+  const supabase = await createClient()
+
+  const { data: isAdmin } = await supabase.rpc('is_admin')
+  if (isAdmin !== true) return null
+
+  const [overviewRes, retentionRes, accountsRes, economyRes, nudgesRes] =
+    await Promise.all([
+      supabase.rpc('admin_overview'),
+      supabase.rpc('admin_retention'),
+      supabase.rpc('admin_accounts', { p_search: search ?? null, p_limit: 200 }),
+      supabase.rpc('admin_economy'),
+      supabase.rpc('admin_nudges'),
+    ])
+
+  const o = (overviewRes.data ?? {}) as Record<string, number>
+
+  return {
+    overview: {
+      users: Number(o.users ?? 0),
+      usersConfirmed: Number(o.users_confirmed ?? 0),
+      usersAnonymous: Number(o.users_anonymous ?? 0),
+      pairsActive: Number(o.pairs_active ?? 0),
+      pairsPending: Number(o.pairs_pending ?? 0),
+      pairsEnded: Number(o.pairs_ended ?? 0),
+      pairsComplete: Number(o.pairs_complete ?? 0),
+      revealsTotal: Number(o.reveals_total ?? 0),
+      revealsToday: Number(o.reveals_today ?? 0),
+      reveals7d: Number(o.reveals_7d ?? 0),
+      signups7d: Number(o.signups_7d ?? 0),
+      signups30d: Number(o.signups_30d ?? 0),
+      richListOptedIn: Number(o.rich_list_opted_in ?? 0),
+      lettersSealed: Number(o.letters_sealed ?? 0),
+      lettersOpened: Number(o.letters_opened ?? 0),
+    },
+    retention: (retentionRes.data ?? []).map(
+      (r: { milestone: number; pairs: number }) => ({
+        milestone: Number(r.milestone),
+        pairs: Number(r.pairs),
+      }),
+    ),
+    accounts: (accountsRes.data ?? []).map(
+      (a: Record<string, unknown>): AdminAccount => ({
+        userId: String(a.user_id),
+        firstName: (a.first_name as string) ?? null,
+        email: (a.email as string) ?? null,
+        pendingEmail: (a.pending_email as string) ?? null,
+        confirmed: a.confirmed === true,
+        isAnonymous: a.is_anonymous === true,
+        isAdmin: a.is_admin === true,
+        createdAt: String(a.created_at),
+        pairStatus: (a.pair_status as string) ?? null,
+        hasPartner: a.has_partner === true,
+        completedDays: Number(a.completed_days ?? 0),
+        lastActive: (a.last_active as string) ?? null,
+        optedIn: a.opted_in === true,
+      }),
+    ),
+    economy: (economyRes.data ?? {}) as Record<string, number>,
+    nudges: (nudgesRes.data ?? {}) as Record<string, unknown>,
   }
 }

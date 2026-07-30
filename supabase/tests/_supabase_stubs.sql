@@ -3,10 +3,20 @@
 
 create schema if not exists auth;
 
+-- Mirrors the columns of Supabase's real auth.users that this app actually
+-- reads. Keeping it faithful matters: the admin functions select created_at and
+-- email_change, and a stub missing them fails here while working in production —
+-- which is the least useful way for a test to disagree with reality.
+--
+-- email_change is the real column name for a pending address. `new_email` is
+-- what supabase-js exposes it as, and confusing the two has already cost one
+-- round trip in this project.
 create table auth.users (
   id            uuid primary key,
   email         text,
-  is_anonymous  boolean not null default true
+  email_change  text,
+  is_anonymous  boolean not null default true,
+  created_at    timestamptz not null default now()
 );
 
 -- Impersonation handle: `set sync.uid = '<uuid>'` to become that user.
