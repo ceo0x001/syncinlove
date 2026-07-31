@@ -62,6 +62,11 @@
   /* Sealed / waiting state */
   --sealed: #f8e7e2;
 
+  /* The teddy. Warm brown that sits with the coral rather than fighting it. */
+  --teddy-fur: #c98a5e;
+  --teddy-inner: #f3ddc9;
+  --teddy-line: #5b3a24;
+
   /* Motion. Defined now so the Phase 2 reveal has a vocabulary to inherit. */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
@@ -92,6 +97,10 @@
     --accent-wash: #251a1f;
 
     --accent-2: #f8619f;
+    /* Lifted on a dark surface, or the bear becomes a silhouette. */
+    --teddy-fur: #d69a6d;
+    --teddy-inner: #f6e6d6;
+    --teddy-line: #40281a;
     --accent-3: #ff9b57;
 
     --brand-gradient: linear-gradient(135deg, #f8619f 0%, #ff8585 52%, #ff9b57 100%);
@@ -621,6 +630,113 @@ body::before {
 
   .how-head {
     border-radius: 1.25rem 1.25rem 0 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Occasions
+
+   One day a year, so it is allowed to be louder than the rest of this app. The
+   card still uses the same paper and hairline as everything else — what changes is
+   that there is a bear on it and, for a few seconds, confetti.
+
+   The confetti is absolutely positioned inside the card and the card clips it, so
+   nothing escapes over the day's question or the nav. It also means no fixed-
+   position overlay, which is the version that ends up sitting on top of a dialog.
+   --------------------------------------------------------------------------- */
+
+.occasion-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.875rem;
+  border: 1px solid var(--hairline-strong);
+  background-color: var(--accent-wash);
+  padding: 1rem 1.125rem;
+}
+
+/*
+   Full viewport, not inside the card.
+
+   Confined to the banner it was a flutter in a 100px box — technically confetti,
+   nothing like a celebration. Fixed and covering the screen is what "a blast when
+   you open the app" actually means.
+
+   `pointer-events: none` is load-bearing: this sits over the day's question for
+   about three seconds, and a decoration that swallows the tap that starts somebody
+   answering would be the worst possible trade. Nothing here is interactive, so it
+   never needs to receive one.
+
+   z-index sits below the `<dialog>` top layer by construction — a modal dialog is
+   promoted above every normal stacking context — so an open How-it-works panel is
+   never rained on.
+*/
+.occasion-confetti {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.occasion-piece {
+  position: absolute;
+  top: -14px;
+  animation-name: occasion-fall;
+  animation-timing-function: cubic-bezier(0.25, 0.7, 0.4, 1);
+  animation-fill-mode: both;
+  will-change: transform, opacity;
+}
+
+.occasion-dot {
+  border-radius: 999px;
+}
+
+/* A sliver rather than a square, so the spin reads as a tumble. */
+.occasion-ribbon {
+  border-radius: 2px;
+}
+
+/* Thin enough to tumble rather than tile. Set here rather than inline so the
+   proportion lives with the shape it belongs to. */
+.occasion-ribbon {
+  width: 5px !important;
+}
+
+/* Two overlapping rounded blocks and a rotation is a heart, at 8px, for no path
+   data at all. */
+.occasion-heart::before,
+.occasion-heart::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px 999px 0 0;
+  background: currentColor;
+}
+
+.occasion-heart::before {
+  transform: rotate(-45deg) translateX(-22%);
+}
+
+.occasion-heart::after {
+  transform: rotate(45deg) translateX(22%);
+}
+
+@keyframes occasion-fall {
+  from {
+    transform: translate3d(0, -20px, 0) rotate(0deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  to {
+    /* Past the bottom of the viewport, so pieces leave rather than settling in a
+       line along the fold. `105vh` from a start of -14px clears the tallest piece. */
+    transform: translate3d(var(--drift), 105vh, 0) rotate(var(--spin));
+    opacity: 0;
   }
 }
 

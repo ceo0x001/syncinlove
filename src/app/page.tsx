@@ -4,11 +4,13 @@ import { ClaimEmail } from '@/components/claim-email'
 import { EntryForm } from '@/components/entry-form'
 import { HowItWorks } from '@/components/how-it-works'
 import { InvitePanel } from '@/components/invite-panel'
+import { OccasionBanner } from '@/components/occasion-banner'
 import { SealedPreview } from '@/components/sealed-preview'
 import { SetupNotice } from '@/components/setup-notice'
 import { Button, Card, NavLink, Rule, Screen, Wordmark } from '@/components/ui'
 import { isConfigured } from '@/lib/supabase/env'
-import { formatCountdown } from '@/lib/sync/day'
+import { occasionToday } from '@/lib/occasions'
+import { formatCountdown, localParts } from '@/lib/sync/day'
 import { loadHome, type Economy, type HomeState } from '@/lib/session'
 import { SUPPORT_URL } from '@/lib/support'
 import { settleOpenDays } from '@/app/actions'
@@ -190,11 +192,14 @@ function NoPair() {
 }
 
 function Hub({ home }: { home: HomeState }) {
-  const { me, partner, invite, openDays, streak, secondsToRollover, economy, completedDays, freezes } =
+  const { me, partner, pair, invite, openDays, streak, secondsToRollover, economy, completedDays, freezes } =
     home
 
   const today = openDays.find((day) => !day.isGrace)
   const grace = openDays.find((day) => day.isGrace)
+
+  const pairToday = pair ? localParts(new Date(), pair.timeZone).date : null
+  const occasion = pair ? occasionToday(pair.timeZone) : null
 
   return (
     <Screen>
@@ -238,6 +243,17 @@ function Hub({ home }: { home: HomeState }) {
             <NavLink href="/settings">Settings</NavLink>
           </nav>
         </header>
+
+        {/*
+          Above the question, never instead of it.
+
+          Dated on the PAIR's clock like everything else here, so both halves of a
+          couple eight hours apart get it on the same day rather than one of them
+          seeing confetti the other has not reached yet.
+        */}
+        {occasion && pairToday ? (
+          <OccasionBanner occasion={occasion} today={pairToday} />
+        ) : null}
 
         {today ? <TodayCard home={home} day={today} /> : null}
 
