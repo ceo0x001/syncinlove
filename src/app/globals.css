@@ -721,6 +721,25 @@ body::before {
   transform: rotate(45deg) translateX(22%);
 }
 
+/* The hint sits just under the card and nudges toward it, so the eye follows the
+   arrow up rather than reading the line as a caption. */
+.occasion-hint {
+  margin-top: 0.5rem;
+  padding-left: 0.25rem;
+}
+
+@keyframes occasion-nudge {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -3px, 0); }
+}
+
+/* Small amplitude on purpose: this is a hint beside body text, and anything livelier
+   reads as an advert for itself. Suppressed by the reduced-motion rule at the end of
+   this file — though the hint only renders when motion is welcome anyway. */
+.occasion-arrow {
+  animation: occasion-nudge 2.2s var(--ease-in-out-soft) infinite;
+}
+
 @keyframes occasion-fall {
   from {
     transform: translate3d(0, -20px, 0) rotate(0deg);

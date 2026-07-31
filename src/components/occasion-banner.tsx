@@ -113,6 +113,16 @@ export function OccasionBanner({
     control is worse than no control.
   */
   const mayAnimate = useSyncExternalStore(subscribeMotion, motionSnapshot, () => false)
+  /*
+    Whether the tap hint has served its purpose.
+    
+    Session state rather than localStorage, and that is deliberate rather than lazy.
+    On a reload the automatic burst will NOT fire again — it is once per day — so the
+    hint reappearing is the useful behaviour: it tells somebody the confetti is still
+    available when nothing else on the screen would. Remembering the tap forever would
+    silence the one prompt that still has something to say.
+  */
+  const [hinted, setHinted] = useState(false)
 
   const fire = useCallback(() => {
     setBurst((n) => n + 1)
@@ -204,7 +214,10 @@ export function OccasionBanner({
       {mayAnimate ? (
         <button
           type="button"
-          onClick={fire}
+          onClick={() => {
+            setHinted(true)
+            fire()
+          }}
           aria-label={`${occasion.headline} Tap for more confetti.`}
           className="occasion-card press flex w-full items-center gap-3.5 text-left"
         >
@@ -215,7 +228,60 @@ export function OccasionBanner({
           <Content occasion={occasion} />
         </div>
       )}
+
+      {/*
+        The hint, and only while it has something to say.
+
+        Below the card rather than beside it. The same constraint that moved the "How
+        Sync works" arrow applies here — at 375px a full-width card leaves no
+        horizontal room for anything alongside it — and pointing up at a thing
+        directly above is unambiguous.
+
+        Gone the moment they tap: it exists to teach one gesture, and a prompt that
+        outlives the lesson is clutter on a card somebody has to look past to reach
+        the day's question.
+      */}
+      {mayAnimate && !hinted ? (
+        <p className="occasion-hint t-small flex items-center gap-1.5 text-ink-faint">
+          <TapArrow />
+          Tap the card for more confetti
+        </p>
+      ) : null}
     </>
+  )
+}
+
+/**
+ * Points up at the card above it.
+ *
+ * Hand-drawn rather than a glyph, matching the arrow on the signup page. The kink in
+ * the tail is what stops it reading as chrome — and chrome is precisely what the eye
+ * has learned to skip, which would defeat a hint.
+ */
+function TapArrow() {
+  return (
+    <svg
+      viewBox="0 0 28 26"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="occasion-arrow h-6 w-6 shrink-0 text-accent"
+      aria-hidden
+    >
+      {/*
+        Tail sweeps up and left from the text toward the card above.
+
+        Redrawn once. The first attempt put the head at the far end of a long looping
+        tail and at 20px the barbs were unreadable — it looked like a hook, and an
+        arrow nobody can tell the direction of is decoration. Shorter tail, bigger
+        box, and the barbs sized off the tail's actual heading.
+      */}
+      <path d="M23 23c-3.6-1.4-6.6-3.6-8.6-6.4C12.2 13.6 10.8 10.2 10 6.4" />
+      {/* Apex at (10, 5.6), barbs swept back down — an unambiguous upward point. */}
+      <path d="M14 10.6 10 5.6 6.2 10.9" />
+    </svg>
   )
 }
 
