@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import type { Occasion } from '@/lib/occasions'
 import { haptic } from '@/lib/haptics'
 
@@ -32,6 +32,30 @@ import { haptic } from '@/lib/haptics'
  * the client's on hydration. So the array starts empty and fills in an effect,
  * which also means the server sends no decoration at all.
  */
+
+/**
+ * Whether the viewer welcomes movement.
+ *
+ * `useSyncExternalStore` rather than an effect that calls setState — this is exactly
+ * what the hook is for, and it buys something an effect would not: the media query
+ * is subscribed, so somebody toggling reduced motion in their OS settings while the
+ * page is open sees the card stop being pressable rather than keeping a control that
+ * now lies.
+ *
+ * The server snapshot is `false`: no animation is rendered server-side, so the first
+ * paint never promises motion it might not be allowed to deliver.
+ */
+const REDUCE = '(prefers-reduced-motion: reduce)'
+
+function subscribeMotion(onChange: () => void): () => void {
+  const mql = window.matchMedia(REDUCE)
+  mql.addEventListener('change', onChange)
+  return () => mql.removeEventListener('change', onChange)
+}
+
+function motionSnapshot(): boolean {
+  return !window.matchMedia(REDUCE).matches
+}
 
 interface Piece {
   left: number
@@ -74,6 +98,27 @@ export function OccasionBanner({
   today: string
 }) {
   const [pieces, setPieces] = useState<Piece[]>([])
+  /*
+    Which burst these pieces belong to.
+    
+    Part of every piece's React key, and that is not cosmetic: with `key={i}` React
+    reuses the same DOM nodes on a re-fire, the CSS animation is never re-applied,
+    and tapping does nothing visible. Changing the key forces a remount, which is
+    what restarts the fall.
+  */
+  const [burst, setBurst] = useState(0)
+  /*
+    Used for two decisions: whether the burst fires on open, and whether the card is
+    a button at all. A tappable card that cannot animate is a dead control, and a dead
+    control is worse than no control.
+  */
+  const mayAnimate = useSyncExternalStore(subscribeMotion, motionSnapshot, () => false)
+
+  const fire = useCallback(() => {
+    setBurst((n) => n + 1)
+    setPieces(makePieces(38))
+    haptic('reveal')
+  }, [])
 
   useEffect(() => {
     const key = `sync.occasion.${occasion.id}.${today}`
@@ -93,7 +138,7 @@ export function OccasionBanner({
       /* Nothing to do; it will fire again next load, which is survivable. */
     }
 
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (!mayAnimate) return
 
     /*
      * Next frame, not this one.
@@ -103,21 +148,23 @@ export function OccasionBanner({
      * paints, and the burst starts against a card that is already there rather than
      * arriving in the same frame as its own background.
      */
-    let timer = 0
-    const frame = window.requestAnimationFrame(() => {
-      setPieces(makePieces(38))
-      haptic('reveal')
+    const frame = window.requestAnimationFrame(fire)
+    return () => window.cancelAnimationFrame(frame)
+  }, [occasion.id, today, fire, mayAnimate])
 
-      // Clear the DOM once the longest piece has landed, so a few dozen absolutely
-      // positioned nodes are not left animating behind everything for the session.
-      timer = window.setTimeout(() => setPieces([]), 5200)
-    })
-
-    return () => {
-      window.cancelAnimationFrame(frame)
-      if (timer) window.clearTimeout(timer)
-    }
-  }, [occasion.id, today])
+  /*
+    Clear the DOM once the longest piece has landed.
+    
+    Keyed on `burst`, so a tap mid-fall restarts this rather than letting the
+    previous timeout cut the new burst short — the effect's cleanup cancels the old
+    timer on every re-fire. Tapping repeatedly therefore keeps at most 38 nodes
+    alive, however fast somebody presses it.
+  */
+  useEffect(() => {
+    if (pieces.length === 0) return
+    const timer = window.setTimeout(() => setPieces([]), 5200)
+    return () => window.clearTimeout(timer)
+  }, [burst, pieces.length])
 
   return (
     <>
@@ -125,7 +172,7 @@ export function OccasionBanner({
         <div className="occasion-confetti" aria-hidden>
           {pieces.map((p, i) => (
             <span
-              key={i}
+              key={`${burst}-${i}`}
               className={`occasion-piece occasion-${p.kind}`}
               style={{
                 left: `${p.left}%`,
@@ -143,12 +190,43 @@ export function OccasionBanner({
         </div>
       ) : null}
 
-      <div className="occasion-card flex items-center gap-3.5">
-        <Teddy />
-        <div className="min-w-0">
-          <p className="t-title text-ink">{occasion.headline}</p>
-          <p className="t-small mt-0.5 text-ink-muted">{occasion.note}</p>
+      {/*
+        A button only where it can do something.
+
+        Under reduced motion this stays a plain div: the card's whole job as a control
+        is to throw confetti, and offering a press that is then suppressed is a
+        control that lies. The message and the bear are unchanged either way.
+
+        `type="button"` because there is no form here and the default would be
+        submit. `aria-label` rather than relying on the headline, since "Happy
+        Girlfriend's Day." describes the banner and not what pressing it does.
+      */}
+      {mayAnimate ? (
+        <button
+          type="button"
+          onClick={fire}
+          aria-label={`${occasion.headline} Tap for more confetti.`}
+          className="occasion-card press flex w-full items-center gap-3.5 text-left"
+        >
+          <Content occasion={occasion} />
+        </button>
+      ) : (
+        <div className="occasion-card flex items-center gap-3.5">
+          <Content occasion={occasion} />
         </div>
+      )}
+    </>
+  )
+}
+
+/** Shared so the pressable and plain versions cannot drift apart. */
+function Content({ occasion }: { occasion: Occasion }) {
+  return (
+    <>
+      <Teddy />
+      <div className="min-w-0">
+        <p className="t-title text-ink">{occasion.headline}</p>
+        <p className="t-small mt-0.5 text-ink-muted">{occasion.note}</p>
       </div>
     </>
   )
