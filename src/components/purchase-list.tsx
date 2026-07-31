@@ -52,7 +52,7 @@ export function PurchaseList({
           {open.map((p) => (
             <div
               key={p.id}
-              className="candy-card"
+              className="rounded-[0.75rem] border border-hairline bg-paper-raised p-4"
             >
               <p className="t-title break-words text-ink">{p.title}</p>
               <p className="t-small mt-1 text-ink-muted">
@@ -70,7 +70,7 @@ export function PurchaseList({
                       type="button"
                       disabled={busy === p.id}
                       onClick={() => act(p.id, markFulfilled)}
-                      className="candy text-[0.875rem]"
+                      className="t-small font-medium text-accent underline decoration-transparent underline-offset-4 hover:decoration-current disabled:opacity-40"
                     >
                       They did it — pay {partnerFirstName}
                     </button>
@@ -78,7 +78,7 @@ export function PurchaseList({
                       type="button"
                       disabled={busy === p.id}
                       onClick={() => act(p.id, declinePurchase)}
-                      className="candy candy-quiet text-[0.875rem]"
+                      className="t-small text-ink-faint underline decoration-hairline underline-offset-4 hover:text-ink-muted disabled:opacity-40"
                     >
                       Never mind — refund me
                     </button>

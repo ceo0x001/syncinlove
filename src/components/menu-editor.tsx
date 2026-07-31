@@ -52,9 +52,9 @@ export function MenuEditor({
       {adding ? (
         <ItemForm onDone={() => setAdding(false)} />
       ) : (
-        <button type="button" className="candy candy-quiet w-full" onClick={() => setAdding(true)}>
+        <Button variant="quiet" onClick={() => setAdding(true)}>
           Add something
-        </button>
+        </Button>
       )}
 
       {items.length > 0 && items.length < 3 ? (
@@ -78,7 +78,7 @@ function ItemRow({ item, onEdit }: { item: MenuItem; onEdit: () => void }) {
         item.active ? '' : 'opacity-55'
       }`}
     >
-      <div className="candy-card flex items-start justify-between gap-4 candy-mine">
+      <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="t-title break-words text-ink">{item.title}</p>
           <p className="t-small mt-1 text-ink-muted">

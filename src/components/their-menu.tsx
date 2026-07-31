@@ -58,7 +58,7 @@ export function TheirMenu({
             // Your own menu is coral on white. The two directions of the economy
             // looked identical before, which made it easy to misread which side
             // of a price you were on.
-            className="candy-card lift flex items-start justify-between gap-4 candy-theirs"
+            className="lift flex items-start justify-between gap-4 rounded-[0.75rem] border border-hairline border-l-[3px] border-l-accent-2 bg-paper-sunken p-4"
           >
             <div className="min-w-0">
               <p className="t-title break-words text-ink">{item.title}</p>
@@ -88,12 +88,16 @@ export function TheirMenu({
                 })
               }}
               className={
-                'candy shrink-0 text-[0.875rem] disabled:pointer-events-none ' +
-                // Unaffordable stays a key, just an inert one — the shape is what
-                // says "this is the thing you press", and swapping it for a flat
-                // label made an item you cannot afford look like an item you
-                // cannot ask for at all.
-                (canSpend && affordable ? '' : 'candy-quiet')
+                'shrink-0 rounded-[0.5rem] px-4 py-2.5 text-[0.875rem] font-medium transition-all ' +
+                'disabled:pointer-events-none disabled:opacity-40 active:scale-[0.98] ' +
+                (canSpend && affordable
+                  ? 'text-accent-ink hover:brightness-[1.04]'
+                  : 'bg-paper-sunken text-ink-muted')
+              }
+              style={
+                canSpend && affordable
+                  ? { backgroundImage: 'var(--brand-gradient)' }
+                  : undefined
               }
             >
               {busy ? 'Asking…' : 'Ask'}
