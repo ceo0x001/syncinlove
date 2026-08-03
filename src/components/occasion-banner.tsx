@@ -131,6 +131,23 @@ export function OccasionBanner({
   }, [])
 
   useEffect(() => {
+    /*
+      The motion check comes FIRST, and the order is the whole bug it fixes.
+
+      `mayAnimate` is false on the first client render — that is the server snapshot,
+      which useSyncExternalStore has to use during hydration to match the server's
+      markup. So this effect runs once with false, then again with the real value.
+
+      When the seen-key was written before this check, that first pass marked the day
+      as seen and returned, and the second pass found the flag already set and did
+      nothing. The confetti never fired for anybody, while every counter said it had:
+      the key was written, no error was thrown, and reduced motion was off.
+
+      Checking motion first means the false pass does nothing at all, and the pass
+      that can actually fire is the one that claims the day.
+    */
+    if (!mayAnimate) return
+
     const key = `sync.occasion.${occasion.id}.${today}`
 
     let seen = false
@@ -147,8 +164,6 @@ export function OccasionBanner({
     } catch {
       /* Nothing to do; it will fire again next load, which is survivable. */
     }
-
-    if (!mayAnimate) return
 
     /*
      * Next frame, not this one.
