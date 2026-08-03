@@ -250,4 +250,45 @@ select assert(
   'and settle is not reachable anonymously'
 );
 
+
+-- ---------------------------------------------------------------------------
+-- Which clock the allowance is counted on
+--
+-- It used to be the session's. For a couple far from UTC that meant the dashboard
+-- reporting the previous month's allowance for the last hours of the 1st — "none
+-- left" on a day that had a fresh two. settle_freezes was already correct, so the
+-- function that granted freezes and the one that reported them disagreed.
+--
+-- Two assertions, because either alone is weak. The behavioural one can pass by
+-- luck when the two dates happen to share a month; the structural one cannot, and
+-- fails the moment somebody reintroduces a bare current_date.
+-- ---------------------------------------------------------------------------
+
+update public.pairs set time_zone = 'Pacific/Kiritimati' where id = :'pair';  -- UTC+14
+
+select assert(
+  public.pair_today(:'pair') = (now() at time zone 'Pacific/Kiritimati')::date,
+  'pair_today reports the couple''s date, not the server''s'
+);
+
+-- The session's date is deliberately set as far from the pair's as Postgres allows.
+-- Whatever the answer is, it must not move when the SESSION timezone moves.
+set time zone 'Pacific/Kiritimati';
+select public.freezes_left(:'pair') as kiritimati \gset
+set time zone 'Pacific/Midway';                                               -- UTC-11
+select assert(
+  public.freezes_left(:'pair') = :kiritimati,
+  'and freezes_left does not move when the session timezone does'
+);
+set time zone 'UTC';
+
+select assert(
+  (select count(*) from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and p.proname in ('freezes_left', 'freeze_status')
+     and pg_get_functiondef(p.oid) like '%pair_today%') = 2,
+  'both freeze readers derive the month from the pair''s clock'
+);
+
 rollback;
