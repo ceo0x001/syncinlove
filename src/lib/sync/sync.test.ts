@@ -6,6 +6,7 @@ import {
   questionById,
   withPartnerName,
 } from '@/lib/questions/bank'
+import { occasionToday } from '@/lib/occasions'
 import { validatePayload } from '@/lib/questions/validate'
 import type { Question } from '@/lib/questions/types'
 import { NEUTRAL_MATCH, scoreDirection, scoreFacet, scoreSync } from './score'
@@ -806,5 +807,58 @@ describe('the question bank', () => {
       (id) => QUESTIONS.find((q) => q.id === id)?.category,
     )
     expect(firstWeek.filter((c) => c && heavy.has(c))).toEqual([])
+  })
+})
+
+/**
+ * Occasions.
+ *
+ * These exist because the feature is asleep for 362 days a year, and code nobody
+ * sees for a year is code that rots without anybody noticing. That is not a
+ * hypothetical here: the confetti broke on 2 August 2026 from an unrelated change to
+ * how reduced motion was read, and had it happened a day later nobody would have
+ * found out until the following August.
+ *
+ * These cover the gating, which is pure and cheap to pin. The failure that actually
+ * happened lived in the component's hydration ordering and would NOT be caught here —
+ * that needs a component-rendering setup this project does not have yet. Worth being
+ * clear about, so a green suite is not mistaken for full cover.
+ */
+describe('occasionToday', () => {
+  const AUG_1_UTC = new Date('2026-08-01T12:00:00Z')
+
+  it('finds Girlfriend’s Day on the first of August', () => {
+    expect(occasionToday('UTC', AUG_1_UTC)?.id).toBe('girlfriend-day')
+  })
+
+  it('is silent on every other day', () => {
+    expect(occasionToday('UTC', new Date('2026-07-31T12:00:00Z'))).toBeNull()
+    expect(occasionToday('UTC', new Date('2026-08-02T12:00:00Z'))).toBeNull()
+  })
+
+  it('recurs, rather than being pinned to one year', () => {
+    expect(occasionToday('UTC', new Date('2031-08-01T09:00:00Z'))?.id).toBe('girlfriend-day')
+  })
+
+  /*
+    The one that matters, and the reason the whole feature takes a timezone.
+
+    At 23:30 UTC on 31 July it is already the 1st in Lagos (UTC+1) and still the 31st
+    in New York. A couple should get their day on their own clock — and both halves of
+    a pairing get the same answer, because it is the PAIR's zone, not each viewer's.
+  */
+  it('is dated on the pair’s clock, not the server’s', () => {
+    const lateJulyUtc = new Date('2026-07-31T23:30:00Z')
+    expect(occasionToday('Africa/Lagos', lateJulyUtc)?.id).toBe('girlfriend-day')
+    expect(occasionToday('UTC', lateJulyUtc)).toBeNull()
+    expect(occasionToday('America/New_York', lateJulyUtc)).toBeNull()
+  })
+
+  it('ends on the pair’s clock too', () => {
+    // 23:30 UTC on the 1st is already the 2nd in Lagos — the banner is done there
+    // while a UTC pairing still has half an hour of it.
+    const lateAug1Utc = new Date('2026-08-01T23:30:00Z')
+    expect(occasionToday('Africa/Lagos', lateAug1Utc)).toBeNull()
+    expect(occasionToday('UTC', lateAug1Utc)?.id).toBe('girlfriend-day')
   })
 })
