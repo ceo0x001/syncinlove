@@ -44,8 +44,20 @@ export default async function MenuPage() {
         <section className="stack" style={{ ['--stack-gap' as string]: '1.25rem' }}>
           <div>
             <h2 className="t-question text-ink">{Them}’s menu</h2>
+            {/* Both roles named, in both directions.
+
+                This said "What they're willing to do, at their prices", which had
+                exactly one actor in it — so it never said the tender comes out of
+                YOUR balance, and "their prices" reads equally well as prices they
+                charge or prices they pay. "Ask" rather than "buy" on purpose: the
+                button says Ask, they can decline, and the money is only held. The
+                old line set a shop frame that the footer then had to walk back.
+
+                Deliberately not repeating what the heading already says. This pair
+                is the same sentence with the subjects swapped, so the symmetry
+                teaches the loop instead of the wording having to. */}
             <p className="t-body mt-2 text-ink-muted">
-              What they’re willing to do, at their prices.
+              {Them} prices these. You spend to ask.
             </p>
           </div>
           <TheirMenu economy={economy} partnerFirstName={them} />
@@ -56,8 +68,11 @@ export default async function MenuPage() {
         <section className="stack" style={{ ['--stack-gap' as string]: '1.25rem' }}>
           <div>
             <h2 className="t-question text-ink">Your menu</h2>
+            {/* The mirror of the line above. "Only you write this" was already
+                clear about the actor, but it stopped short of saying who pays —
+                which is the half people were missing. */}
             <p className="t-body mt-2 text-ink-muted">
-              Only you write this, and only you price it.
+              You price these. {Them} spends to ask.
             </p>
           </div>
           <MenuEditor items={economy.myMenu} suggestPrompt={economy.shouldPromptMenu} />
