@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { haptic } from '@/lib/haptics'
 import { withPartnerName } from '@/lib/questions/bank'
+import { MERGE_GAP, closeness, gapSentence } from '@/lib/questions/scale-words'
 import type { AnswerPayload, ChoiceFacet, Facet, Question, ScaleFacet } from '@/lib/questions/types'
 import { NEUTRAL_MATCH, scoreFacet } from '@/lib/sync/score'
 import { tender } from '@/lib/tender'
@@ -299,13 +301,19 @@ function Comparison({
     )
   }
 
+  // No silent midpoint. See ScaleMissing — the old `?? 50` drew marks that
+  // contradicted the score sitting next to them.
+  if (truth === undefined || guess === undefined) {
+    return <ScaleMissing facet={facet} subject={subject} guesser={guesser} />
+  }
+
   return (
     <ScaleComparison
       facet={facet}
       subject={subject}
       guesser={guesser}
-      truth={Number(truth ?? 50)}
-      guess={Number(guess ?? 50)}
+      truth={Number(truth)}
+      guess={Number(guess)}
       score={score}
       open={open}
       delay={delay}
@@ -367,6 +375,26 @@ function ChoiceComparison({
  *
  * The marks start together in the middle and open to their true positions, so
  * the gap is something that happens rather than something already drawn.
+ *
+ * ── Why the marks are named on the track ─────────────────────────────────
+ *
+ * They were not, and people told us the card was confusing. Filled meant "what
+ * they said" and hollow meant "what the other one guessed", and that mapping
+ * existed nowhere on screen — only in this comment. Worse, it could not be
+ * inferred: the two cards for one facet run in opposite directions, so the filled
+ * mark lands left of the hollow one on the first card and right of it on the
+ * second. Somebody trying to learn the rule from the two examples in front of
+ * them got contradictory evidence.
+ *
+ * So each mark carries the name of whoever put it there. A key at the bottom of
+ * the card was the obvious alternative and is worse: a key is a lookup, and the
+ * whole problem is that reading this card required a lookup.
+ *
+ * Above the track for the truth, below it for the guess. Staggering rather than
+ * sitting them on one line is what makes it safe — two captions on the same row
+ * would collide as the marks converge, and the collision would be worst exactly
+ * when the couple did best. Stacked, they can never touch, and the vertical
+ * position becomes a second cue reinforcing which mark is which.
  */
 function ScaleComparison({
   facet,
@@ -391,21 +419,55 @@ function ScaleComparison({
 }) {
   const lo = Math.min(truth, guess)
   const span = Math.abs(truth - guess)
+  /*
+    Close enough that two marks would overlap, so they are drawn as one.
+
+    This is the bug fix, not a flourish. The guess mark paints after the truth mark
+    and its fill is opaque, so at a small gap the ring simply covered the filled
+    dot and the tinted span between them had no width — a *perfect* read rendered
+    as one empty circle, which reads as a marker that failed to load. The best
+    outcome in the product was the only one that looked broken.
+  */
+  const merged = span <= MERGE_GAP
 
   const ease = reduced
     ? 'none'
     : `left 760ms var(--ease-out-expo) ${delay}ms, width 760ms var(--ease-out-expo) ${delay}ms`
 
+  const them = guesser.toLowerCase() === 'you' ? 'you' : guesser
+
   return (
     <div className="rounded-[0.75rem] border border-hairline bg-paper-raised p-4">
-      <div className="mb-4 flex items-baseline justify-between gap-3">
+      <div className="mb-1 flex items-baseline justify-between gap-3">
+        {/* A direction, not a sentence with a middot in it. Deliberately the same
+            "you read / they read" vocabulary as the two figures at the top of this
+            screen, so the reveal speaks one language rather than two. */}
         <p className="t-small text-ink-muted">
-          {subject} said · {guesser.toLowerCase() === 'you' ? 'you' : guesser} guessed
+          {guesser} read {subject.toLowerCase() === 'you' ? 'you' : subject}
         </p>
-        <p className="t-small tabular text-ink-faint">{score}%</p>
+        {/* Word first, number second. A bare percentage sitting on top of a 0-100
+            track reads as a position on that track, which is why a 48% next to a
+            mark at three-quarters looked like a fault. */}
+        <p className="t-small text-ink-muted">
+          {closeness(span)} ·{' '}
+          <span className="tabular text-ink">{score}%</span>
+        </p>
       </div>
 
-      <div className="relative h-6" role="img" aria-label={gapDescription(truth, guess, facet)}>
+      {/* Fixed heights on the caption rows rather than letting them size to their
+          content: the track must not shift vertically between a merged card and an
+          open one, or a column of these cards jitters as you read down it. */}
+      <div className="relative h-[1.125rem]">
+        <MarkLabel at={open ? truth : 50} tone="strong" ease={ease}>
+          {merged ? `${subject} · ${them}` : subject}
+        </MarkLabel>
+      </div>
+
+      <div
+        className="relative h-6"
+        role="img"
+        aria-label={gapSentence(facet, subject, guesser, truth, guess, score)}
+      >
         <span className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-hairline-strong" />
 
         <span
@@ -413,23 +475,110 @@ function ScaleComparison({
           style={{ left: `${open ? lo : 50}%`, width: `${open ? span : 0}%`, transition: ease }}
         />
 
-        {/* Truth — filled. */}
-        <span
-          className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent bg-accent"
-          style={{ left: `${open ? truth : 50}%`, transition: ease }}
-        />
+        {merged ? (
+          /* One mark, both of them: a filled core inside a ring. It carries both
+             shapes at once, so it does not need its own legend either. */
+          <>
+            <span
+              className="absolute top-1/2 size-[1.375rem] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent bg-paper-raised"
+              style={{ left: `${open ? truth : 50}%`, transition: ease }}
+            />
+            <span
+              className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent"
+              style={{ left: `${open ? truth : 50}%`, transition: ease }}
+            />
+          </>
+        ) : (
+          <>
+            {/* Truth — filled. */}
+            <span
+              className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent bg-accent"
+              style={{ left: `${open ? truth : 50}%`, transition: ease }}
+            />
 
-        {/* Guess — hollow. */}
-        <span
-          className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent bg-paper-raised"
-          style={{ left: `${open ? guess : 50}%`, transition: ease }}
-        />
+            {/* Guess — hollow. */}
+            <span
+              className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent bg-paper-raised"
+              style={{ left: `${open ? guess : 50}%`, transition: ease }}
+            />
+          </>
+        )}
       </div>
 
-      <div className="mt-3 flex items-baseline justify-between gap-4">
+      <div className="relative h-[1.125rem]">
+        {merged ? null : (
+          <MarkLabel at={open ? guess : 50} tone="muted" ease={ease}>
+            {them} guessed
+          </MarkLabel>
+        )}
+      </div>
+
+      <div className="mt-2 flex items-baseline justify-between gap-4">
         <span className="t-small text-ink-faint">{facet.minLabel}</span>
         <span className="t-small text-right text-ink-faint">{facet.maxLabel}</span>
       </div>
+    </div>
+  )
+}
+
+/**
+ * A caption pinned to a mark's position.
+ *
+ * Travels with the mark on the same easing and delay, so a name never detaches
+ * from the dot it belongs to while the card opens.
+ *
+ * The anchor switches near the ends instead of always centring. A centred caption
+ * at 98% hangs half its width off the card, and "Today" is exactly where a slider
+ * answer most often lands — the extremes are the common case here, not the edge
+ * case. Three fixed bands rather than measuring the text: measurement means a
+ * layout read on every reveal to decide how to draw it, and the visible difference
+ * is a few pixels of alignment.
+ */
+function MarkLabel({
+  at,
+  tone,
+  ease,
+  children,
+}: {
+  at: number
+  tone: 'strong' | 'muted'
+  ease: string
+  children: ReactNode
+}) {
+  const anchor = at <= 12 ? 'translateX(0)' : at >= 88 ? 'translateX(-100%)' : 'translateX(-50%)'
+
+  return (
+    <span
+      className={`t-small absolute whitespace-nowrap ${
+        tone === 'strong' ? 'text-ink' : 'text-ink-muted'
+      }`}
+      style={{ left: `${at}%`, transform: anchor, transition: ease, bottom: 0 }}
+    >
+      {children}
+    </span>
+  )
+}
+
+/**
+ * A scale facet with nothing recorded on one side.
+ *
+ * Previously this fell back to `truth ?? 50` and drew a mark in the middle of the
+ * track — while `scoreFacet` was called with the raw `undefined` and returned 0. So
+ * a row missing an answer could render two marks close together above a 0%, which
+ * is a card arguing with itself. Submission validation makes this unreachable for
+ * anything answered through the app; it exists so one legacy row cannot make a
+ * reveal look broken, and saying "missing" is the only honest way to do that.
+ */
+function ScaleMissing({ facet, subject, guesser }: { facet: ScaleFacet; subject: string; guesser: string }) {
+  return (
+    <div className="rounded-[0.75rem] border border-hairline bg-paper-raised p-4">
+      <p className="t-small mb-1 text-ink-muted">
+        {guesser} read {subject.toLowerCase() === 'you' ? 'you' : subject}
+      </p>
+      <p className="t-body text-ink-muted">No slider answer was recorded for this one.</p>
+      <span className="sr-only">
+        {facet.minLabel} to {facet.maxLabel}. Nothing recorded, so it scored zero.
+      </span>
     </div>
   )
 }
@@ -457,13 +606,6 @@ function Mark({ hit }: { hit: boolean }) {
       <span className="sr-only">{hit ? 'Guessed right.' : 'Guessed wrong.'}</span>
     </>
   )
-}
-
-function gapDescription(truth: number, guess: number, facet: ScaleFacet): string {
-  const gap = Math.abs(truth - guess)
-  if (gap <= 5) return 'Almost exactly right'
-  if (gap <= 20) return 'Close'
-  return `Off by a distance, between ${facet.minLabel} and ${facet.maxLabel}`
 }
 
 /** One sentence, never scolding. A bad day is information, not a failure. */

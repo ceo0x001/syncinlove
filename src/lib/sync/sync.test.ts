@@ -7,6 +7,7 @@ import {
   withPartnerName,
 } from '@/lib/questions/bank'
 import { occasionToday } from '@/lib/occasions'
+import { MERGE_GAP, closeness, describePosition, gapSentence } from '@/lib/questions/scale-words'
 import { validatePayload } from '@/lib/questions/validate'
 import type { Question } from '@/lib/questions/types'
 import { NEUTRAL_MATCH, scoreDirection, scoreFacet, scoreSync } from './score'
@@ -860,5 +861,75 @@ describe('occasionToday', () => {
     const lateAug1Utc = new Date('2026-08-01T23:30:00Z')
     expect(occasionToday('Africa/Lagos', lateAug1Utc)).toBeNull()
     expect(occasionToday('UTC', lateAug1Utc)?.id).toBe('girlfriend-day')
+  })
+})
+
+/**
+ * Scale wording.
+ *
+ * The reveal's slider card confused real users: filled meant "said" and hollow meant
+ * "guessed", and that mapping appeared nowhere on screen. The fix is words, so the
+ * words are pinned — a band boundary that quietly moves is the same failure again,
+ * and this is the most-seen component in the product (all 116 questions carry a scale
+ * facet, drawn twice each).
+ */
+describe('scale wording', () => {
+  const facet = {
+    kind: 'scale',
+    id: 'recency',
+    ask: 'How recent?',
+    askAbout: 'How recent for {them}?',
+    minLabel: 'Been a while',
+    maxLabel: 'Today',
+  } as const
+
+  it('describes a position in the facet’s own language, not as a number', () => {
+    // "Low" and "high" mean nothing on a "Been a while → Today" scale.
+    expect(describePosition(0, facet)).toBe('Been a while')
+    expect(describePosition(100, facet)).toBe('Today')
+    expect(describePosition(50, facet)).toBe('in the middle')
+    expect(describePosition(30, facet)).toBe('closer to Been a while')
+    expect(describePosition(75, facet)).toBe('closer to Today')
+  })
+
+  it('leads the score with a word, so a percentage cannot read as a slider position', () => {
+    expect(closeness(0)).toBe('Almost exactly')
+    expect(closeness(20)).toBe('Close')
+    expect(closeness(30)).toBe('Some daylight')
+    expect(closeness(70)).toBe('Opposite ends')
+  })
+
+  /*
+    The merge threshold is load-bearing, not cosmetic.
+
+    Under it the two marks overlap and the hollow guess mark paints over the filled
+    truth mark, so a perfect read used to render as a single empty ring. The card now
+    draws one bullseye instead — but only if this boundary stays where the drawing
+    code expects it.
+  */
+  it('treats a near-perfect read as the same spot', () => {
+    expect(MERGE_GAP).toBe(5)
+    expect(closeness(MERGE_GAP)).toBe('Almost exactly')
+    expect(closeness(MERGE_GAP + 1)).toBe('Close')
+  })
+
+  it('names both people in the screen-reader sentence', () => {
+    // The marks are role="img", so this string is the ENTIRE content for somebody
+    // listening. It used to say just "Close" — no names, no positions, no score.
+    const said = gapSentence(facet, 'Dada', 'You', 73, 98, 48)
+    // Both positions are lowercased mid-sentence: "guessed today", not "guessed Today".
+    expect(said).toBe('Dada said closer to Today. You guessed today. Some daylight — 48%.')
+  })
+
+  it('does not claim two positions when the marks are merged', () => {
+    // Drawn as one mark, so describing two would contradict the picture.
+    expect(gapSentence(facet, 'You', 'Dada', 70, 72, 96)).toBe(
+      'You said closer to Today. Dada guessed the same spot. Almost exactly — 96%.',
+    )
+  })
+
+  it('lowercases the label mid-sentence without flattening the whole string', () => {
+    // facet labels are capitalised as standalone captions under the track.
+    expect(gapSentence(facet, 'Dada', 'You', 2, 4, 96)).toContain('Dada said been a while.')
   })
 })

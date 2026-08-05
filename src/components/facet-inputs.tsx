@@ -1,5 +1,6 @@
 'use client'
 
+import { describePosition } from '@/lib/questions/scale-words'
 import type { ChoiceFacet, FacetValue, ScaleFacet } from '@/lib/questions/types'
 
 /**
@@ -91,13 +92,4 @@ export function ScaleInput({
       </div>
     </div>
   )
-}
-
-/** Screen-reader text, since there is deliberately no visible number. */
-function describePosition(value: number, facet: ScaleFacet): string {
-  if (value <= 12) return facet.minLabel
-  if (value >= 88) return facet.maxLabel
-  if (value < 45) return `closer to ${facet.minLabel}`
-  if (value > 55) return `closer to ${facet.maxLabel}`
-  return 'in the middle'
 }
