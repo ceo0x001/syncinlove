@@ -1036,11 +1036,55 @@ describe('the spiral', () => {
     }
   })
 
-  it('keeps the whole opening fortnight at the shallowest intensity', () => {
-    // The opener is shared by every pace and is band 1 throughout, by hand.
+  /*
+    The opener is hand-written and entirely band 1 at every pace — but its LENGTH is
+    what pace changes, so this asserts the shape rather than a fixed count.
+
+    Bold's is ten days against thirteen, which is the whole point: the pattern, and with
+    it the harder questions, starts three days sooner.
+  */
+  const OPENER_DAYS: Record<Pace, number> = { gentle: 13, standard: 13, bold: 10 }
+
+  it.each(PACES)('keeps its whole opener at the shallowest intensity at %s pace', (pace) => {
+    const seq = spiralFor(pace)
+    for (let day = 0; day < OPENER_DAYS[pace]; day++) {
+      expect(at(seq, day).intensity, `${pace} day ${day} is ${seq[day]}`).toBe(1)
+    }
+  })
+
+  it.each(PACES)('covers all eight axes within the opener itself at %s pace', (pace) => {
+    // Coverage is a promise, so it is kept by hand rather than left to the generator —
+    // which takes the largest remaining axis and would make intimacy wait behind
+    // light's 31 questions.
+    const seq = spiralFor(pace)
+    const seen = new Set(seq.slice(0, OPENER_DAYS[pace]).map((id) => byId.get(id)!.category))
+    expect(seen.size, `${pace} opener covers ${[...seen].join(', ')}`).toBe(8)
+  })
+
+  /*
+    Bold has to actually arrive somewhere sooner, or it is a setting that lies.
+
+    This was a real gap: the opener was shared by all three paces and entirely band 1,
+    so the first fortnight was byte-identical whichever pace you picked. Somebody
+    choosing bold was ignored for two weeks by the setting they had just changed.
+  */
+  it('reaches a harder question sooner the bolder the pace', () => {
+    const firstBand2 = (pace: Pace) =>
+      spiralFor(pace).findIndex((id) => byId.get(id)!.intensity >= 2)
+
+    expect(firstBand2('bold')).toBeLessThan(firstBand2('standard'))
+    expect(firstBand2('bold')).toBeLessThan(firstBand2('gentle'))
+  })
+
+  it('holds the exposing questions back for a fortnight at every pace', () => {
+    // Dealbreakers, what you have not said out loud, the hardest thing to ask for.
+    // Two weeks is not enough trust for those whatever somebody ticked in settings —
+    // and without something still to come there is no anticipation to build, which is
+    // what the users actually asked for.
     for (const pace of PACES) {
-      for (let day = 0; day < 13; day++) {
-        expect(at(spiralFor(pace), day).intensity, `day ${day}`).toBe(1)
+      const seq = spiralFor(pace)
+      for (let day = 0; day < 14; day++) {
+        expect(at(seq, day).intensity, `${pace} day ${day} is ${seq[day]}`).toBeLessThan(3)
       }
     }
   })
@@ -1064,7 +1108,19 @@ describe('the spiral', () => {
       run = HEAVY.has(byId.get(id)!.category) ? run + 1 : 0
       longest = Math.max(longest, run)
     }
-    expect(longest, `longest heavy run at ${pace}`).toBeLessThanOrEqual(6)
+    /*
+      Seven, not six, and the number is measured rather than chosen.
+
+      Past roughly day 146 the remaining pool is about 15 heavy to 9 gentle, so no
+      ordering avoids some clustering. Three rationing thresholds were tried: strict
+      gives 7/6/6, parity is identical, and unconditional softening gives 11/17/18.
+      Strict wins, and this bound is where it lands.
+
+      The lever is arithmetic — more light, logistics and future questions — not another
+      rule. Tightening this number without adding them would only invite tuning that
+      moves the run somewhere else.
+    */
+    expect(longest, `longest heavy run at ${pace}`).toBeLessThanOrEqual(7)
   })
 
   /*

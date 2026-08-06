@@ -223,6 +223,22 @@ function interleave(pool: readonly Question[], after: Category | null): string[]
      * remains, and spending one now to soften a single adjacency costs a worse run
      * later.
      *
+     * That threshold looks too strict and is not. Measured, on the 170-question bank:
+     *
+     *   gentleLeft > heavyLeft   longest heavy run  7 / 6 / 6   (gentle/standard/bold)
+     *   gentleLeft >= heavyLeft  identical — never the deciding comparison
+     *   gentleLeft > 0           11 / 17 / 18
+     *
+     * Always softening is dramatically worse because the front patterns already draw
+     * band 1 heavily, so an unconditional preference spends the gentle axes early and
+     * hands a long run to the tail. The strict version is the best of the three.
+     *
+     * What the residual runs actually are: past roughly day 146 the remaining pool is
+     * about 15 heavy to 9 gentle, and no ordering of 15 into 10 gaps avoids clustering.
+     * The lever is arithmetic, not logic — more questions on light, logistics and
+     * future. That claim is now trustworthy in a way it was not the first three times
+     * it was made, because the rationing no longer spends them early.
+     *
      * The trade, measured over the generated tail: the longest heavy run falls from
      * 12 to 4, while heavy-follows-heavy rises from 10% to 19%. That is the right
      * way round. A couple experiences the run, not the average — four heavy days
@@ -315,21 +331,81 @@ const BY_ID = new Map(QUESTIONS.map((q) => [q.id, q]))
    as an interrogation.
    --------------------------------------------------------------------------- */
 
-const OPENER: readonly string[] = [
-  'q-sleep', //             light
-  'q-help-this-week', //    logistics
-  'q-good-at', //           light
-  'q-next-trip', //         future
-  'q-when-quiet', //        deep
-  'q-laugh', //             light
-  'q-flirt', //             desire
-  'q-energy-clock', //      logistics
-  'q-tone', //              friction
-  'q-comfort-food', //      light
-  'q-anticipation', //      intimacy
-  'q-how-tired', //         logistics
-  'q-money-instinct', //    values
-] as const
+const OPENER: Record<Pace, readonly string[]> = {
+  /*
+    Gentle and standard: thirteen days, one axis at a time, nothing hurried.
+  */
+  gentle: [
+    'q-sleep', //             light
+    'q-help-this-week', //    logistics
+    'q-good-at', //           light
+    'q-next-trip', //         future
+    'q-when-quiet', //        deep
+    'q-laugh', //             light
+    'q-flirt', //             desire
+    'q-energy-clock', //      logistics
+    'q-tone', //              friction
+    'q-comfort-food', //      light
+    'q-anticipation', //      intimacy
+    'q-how-tired', //         logistics
+    'q-money-instinct', //    values
+  ],
+  standard: [
+    'q-sleep', //             light
+    'q-help-this-week', //    logistics
+    'q-good-at', //           light
+    'q-next-trip', //         future
+    'q-when-quiet', //        deep
+    'q-laugh', //             light
+    'q-flirt', //             desire
+    'q-energy-clock', //      logistics
+    'q-tone', //              friction
+    'q-comfort-food', //      light
+    'q-anticipation', //      intimacy
+    'q-how-tired', //         logistics
+    'q-money-instinct', //    values
+  ],
+  /*
+    Bold: the same eight axes in ten days instead of thirteen, so the pattern —
+    and with it the harder questions — starts three days sooner.
+
+    Ten and not eight. Eight slots for eight axes means five of them heavy, which
+    forces a heavy pair somewhere however they are arranged; two gentle questions
+    bought back the spacing. Choosing "bold" should not mean choosing a worse-built
+    fortnight.
+
+    Desire lands on day 1 and sex on day 3, both as preference questions. That is the
+    setting doing what its own description promises.
+  */
+  bold: [
+    'q-sleep', //             light      — day 0 is q-sleep at every pace
+    'q-flirt', //             desire
+    'q-help-this-week', //    logistics
+    'q-anticipation', //      intimacy
+    'q-laugh', //             light
+    'q-tone', //              friction
+    'q-next-trip', //         future
+    'q-money-instinct', //    values
+    'q-how-tired', //         logistics
+    'q-when-quiet', //        deep
+  ],
+} as const
+
+/**
+ * The floor no pace goes under: nothing at intensity 3 in the first fortnight.
+ *
+ * Intensity 3 is the exposing end — dealbreakers, what you have not said out loud, the
+ * hardest thing to ask for. Two weeks is not enough trust for those whatever somebody
+ * ticked in settings, and a couple who chose bold on day one has not met the app yet.
+ *
+ * It is also what keeps the setting honest. "Nothing is held back for long" is a
+ * promise about weeks, not days; without something still to come there is no
+ * anticipation to build, which is the thing the users actually asked for.
+ *
+ * Bold's real difference is band 2 arriving on day 10 rather than day 13, and both
+ * heavier bands being far denser after that.
+ */
+const NO_EXPOSING_BEFORE_DAY = 14
 
 export type Pace = 'gentle' | 'standard' | 'bold'
 
@@ -363,26 +439,35 @@ const PACE_FRONT: Record<Pace, readonly Intensity[]> = {
 const FRONT_DAYS = 42
 
 /**
- * What every pace settles into: band 1 half the time, and never two heavier slots
- * back to back.
+ * What every pace settles into: whichever band has the most questions left.
  *
- * Both halves of that are load-bearing, and both were learned the hard way.
+ * This was a fixed proportional pattern, and it failed for the third time in the same
+ * way. A fixed share cannot match a pool whose composition it is itself changing:
+ * bold's pattern drew band 1 slightly faster than band 1's share of the bank, band 1
+ * ran dry a dozen questions before the end, and the tail became pure band 3 — which is
+ * 20 heavy against 6 gentle, so the longest heavy run went from four to seven.
  *
- * Half, because band 1 is 89 of 170 questions — 52%. Any pace that draws band 1 more
- * often than that runs out of it and finishes on bands 2 and 3, which is the same
- * spend-the-pool-early trap that gave `interleave` its twelve-day heavy run. A pace
- * cannot be gentle for the whole distance; a finite bank does not allow it. It can
- * only be gentle first, which is what FRONT_DAYS is for.
+ * The same shape as the twelve-day run that gentle-after-heavy caused, and as the
+ * gentle axes draining early before that. Three times now: any rule that spends a
+ * finite pool at a fixed rate exhausts the thing it is rationing and hands the problem
+ * to the tail.
  *
- * Never adjacent, because bands 2 and 3 are heavy-dominated by construction — the
- * gentle axes are mostly intensity 1, so band 2 is 40 heavy against 15 gentle and
- * band 3 is 20 against 6. Two heavier slots in a row is therefore very close to two
- * heavy questions in a row no matter how the axis rules vote. The earlier patterns
- * had runs of three such slots and produced seven-day heavy stretches at gentle and
- * standard; bold, whose band-1 slots happened to be evenly spread, was the only one
- * that passed. One pace passing by luck is not a design.
+ * Largest-remaining-first cannot do that. Every band drains at the rate it needs to
+ * finish alongside the others, so nothing is left over to stack up at the end. It also
+ * needs no tuning as the bank grows: add thirty light questions and it rebalances
+ * itself, where a fixed pattern would need re-deriving.
+ *
+ * Pace still means something — the front patterns are untouched, and they are where a
+ * couple's first six weeks are decided.
  */
-const PACE_TAIL: readonly Intensity[] = [1, 2, 1, 2, 1, 3, 1, 2, 1, 2, 1, 3]
+function bandWithMost(remaining: Record<Intensity, number>): Intensity {
+  // Ties to the lower band, so a couple gets the gentler of two equal options.
+  let best: Intensity = 1
+  for (const band of [2, 3] as Intensity[]) {
+    if (remaining[band] > remaining[best]) best = band
+  }
+  return best
+}
 
 /**
  * One pace's full ordering: the opener, then everything else spiralled.
@@ -396,7 +481,8 @@ const PACE_TAIL: readonly Intensity[] = [1, 2, 1, 2, 1, 3, 1, 2, 1, 2, 1, 3]
  * preferring a gentle axis after a heavy one while gentle questions can be spared.
  */
 export function spiralFor(pace: Pace): string[] {
-  const opened = new Set<string>(OPENER)
+  const opener = OPENER[pace]
+  const opened = new Set<string>(opener)
   const front = PACE_FRONT[pace]
 
   // One queue per (band, axis), each already in axis-spaced order within its band.
@@ -412,8 +498,8 @@ export function spiralFor(pace: Pace): string[] {
     }
   }
 
-  const out = [...OPENER]
-  let prev = BY_ID.get(OPENER[OPENER.length - 1])!.category
+  const out = [...opener]
+  let prev = BY_ID.get(opener[opener.length - 1])!.category
   let slot = 0
 
   for (;;) {
@@ -421,11 +507,24 @@ export function spiralFor(pace: Pace): string[] {
     if (live.length === 0) break
 
     /* The pace's own shape for six weeks, then the shared proportional one. */
-    const wanted =
-      slot < FRONT_DAYS
-        ? front[slot % front.length]
-        : PACE_TAIL[(slot - FRONT_DAYS) % PACE_TAIL.length]
+    const leftInBand: Record<Intensity, number> = { 1: 0, 2: 0, 3: 0 }
+    for (const [key, ids] of live) {
+      leftInBand[Number(key[0]) as Intensity] += ids.length
+    }
+
+    const asked = slot < FRONT_DAYS ? front[slot % front.length] : bandWithMost(leftInBand)
     slot++
+
+    /*
+      The floor, applied where the band is chosen rather than where it is drawn.
+
+      Asking for a 2 instead of a 3 keeps the rest of the machinery untouched: the
+      band-distance fallback, the axis rule and the gentle rationing all behave as
+      normal, and the questions that would have gone here are still in the pool for
+      later. Filtering them out at the draw instead would leave gaps to reason about.
+    */
+    const wanted: Intensity =
+      asked === 3 && out.length < NO_EXPOSING_BEFORE_DAY ? 2 : asked
 
     /*
      * Bands are tried in order of how far they are from the one the pattern asked
