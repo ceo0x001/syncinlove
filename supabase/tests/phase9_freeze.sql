@@ -201,12 +201,50 @@ select assert(
 -- It must stop at the first gap it cannot cover rather than spending on history.
 delete from public.streak_freezes where pair_id = :'pair';
 delete from public.reveals where pair_id = :'pair';
+
+-- Pinned to the first of last month, and that is the whole point of this block.
+--
+-- The allowance is two per CALENDAR MONTH of the day being forgiven — settle takes
+-- its budget from `freezes_left(pair, v_zero + v_day)`, not from today's month. So
+-- how many freezes a five-day gap can draw depends on whether those five days sit
+-- inside one month or straddle two.
+--
+-- day_zero was `current_date - 40`, which put the gap in one month on most dates
+-- and across a month end on a few. On 6 August 2026 it spanned 29-30 June and
+-- 1-2 July, legitimately drew two months' allowances, spent 4, and failed an
+-- assertion that reads like it is about a hard cap. Nothing was wrong with the
+-- function; the fixture was asserting the calendar.
+--
+-- First-of-last-month is stable on every date of the year: days 0-6 are the 1st to
+-- the 7th of a month that has ended, so they are all closed and all in one month.
+update public.pairs
+   set day_zero = date_trunc('month', current_date - interval '1 month')::date
+ where id = :'pair';
+
 -- Answered 0, then days 1..5 all missed and closed, then answered 6.
 insert into public.reveals (pair_id, day_index, question_id, sync_score, payload)
 select :'pair', d, (select id from public.questions limit 1), 80, '{}'::jsonb
 from unnest(array[0, 6]) as d;
 
-select assert(public.settle_freezes(:'pair') = 2, 'settle spends at most the allowance');
+select assert(
+  public.settle_freezes(:'pair') = 2,
+  'settle spends at most one month''s allowance on a gap inside one month'
+);
+
+-- The semantics the old assertion left ambiguous, now stated. A freeze belongs to
+-- the month of the day it forgives, which is what makes a gap across a month end
+-- able to draw on both allowances — deliberate, and worth pinning so nobody
+-- "fixes" it into counting against whichever month somebody happened to open the
+-- app in.
+select assert(
+  not exists (
+    select 1 from public.streak_freezes f
+    join public.pairs p on p.id = f.pair_id
+    where f.pair_id = :'pair'
+      and f.month <> date_trunc('month', p.day_zero + f.day_index)::date
+  ),
+  'each freeze is booked to the month of the day it forgives, not to today''s'
+);
 select assert(
   (select count(*) from public.streak_freezes where pair_id = :'pair') = 2,
   'and no more than that exists'
