@@ -52,6 +52,19 @@ insert into public.pair_members (pair_id, user_id, role) values
   (:'pair',  :'ada', 'inviter'), (:'pair',  :'bo',  'invitee'),
   (:'pair2', :'cy',  'inviter'), (:'pair2', :'dee', 'invitee');
 
+/*
+  Who is asking, for the rest of the file.
+
+  question_for_pair_day refuses a pairing the caller is not in, so every call has to
+  come from somebody. This suite used to call it as the table owner with no sync.uid,
+  which is nobody — and it passed, because the guard did not exist yet. Adding the
+  guard broke thirteen assertions at once, which is the guard doing its job on the
+  tests before it does it on a stranger.
+
+  Ada for :pair, Cy for :pair2, switched at each section boundary.
+*/
+set sync.uid = 'aa000000-0000-0000-0000-0000000000aa';
+
 
 -- ---------------------------------------------------------------------------
 -- The orderings themselves
@@ -228,6 +241,8 @@ select assert(
 update public.pairs set pace = 'standard' where id = :'pair';
 
 
+set sync.uid = 'cc000000-0000-0000-0000-0000000000cc';   -- Cy, for :pair2
+
 -- ---------------------------------------------------------------------------
 -- Two partners, one day, at the same moment
 --
@@ -320,6 +335,8 @@ select assert(
   'and the whole bank was served exactly once before any of it repeated'
 );
 
+
+set sync.uid = 'aa000000-0000-0000-0000-0000000000aa';   -- Ada again, for :pair
 
 -- ---------------------------------------------------------------------------
 -- The backfill
@@ -449,6 +466,51 @@ begin
 exception when insufficient_privilege then
   raise notice 'ok — pairs is not directly writable at all, so pace only moves through set_pace';
 end $$;
+
+reset role;
+
+/*
+  The assertion that was missing, and the reason this suite gave false comfort.
+
+  A member reaching into a pairing they are not in. question_for_pair_day takes a
+  pair_id, is SECURITY DEFINER, and originally never asked whether the caller belonged
+  to it — so anyone who could execute it could read AND assign a day for a stranger's
+  pairing, since the function writes.
+
+  Nothing here caught that. The privilege assertion below passed while being false in
+  production: Supabase's project-level default privileges grant EXECUTE on new functions
+  to anon BY NAME, and 0022 only revoked from PUBLIC. `has_function_privilege` was
+  answering truthfully about a throwaway database that has no such defaults — a true
+  statement about the wrong machine.
+
+  Found by calling the deployed function as anon and reading the response, which is the
+  only place the difference was visible. The grant is now revoked from anon explicitly,
+  which is what makes the assertion mean the same thing in both environments.
+*/
+set sync.uid = 'aa000000-0000-0000-0000-0000000000aa';
+set role authenticated;
+
+do $$
+begin
+  perform public.question_for_pair_day('bbbb0000-0000-0000-0000-00000000bbbb', 3);
+  raise exception 'FAILED: a member read a question for a pairing they are not in';
+exception when sqlstate 'P0002' then
+  raise notice 'ok — a member cannot ask about a pairing they are not in';
+end $$;
+
+select assert(
+  not exists (
+    select 1 from public.pair_days
+    where pair_id = 'bbbb0000-0000-0000-0000-00000000bbbb' and day_index = 3
+  ),
+  'and the refused call assigned nothing — it writes, so a bare read check is not enough'
+);
+
+-- Their own pairing still works, so the guard refuses rather than breaks.
+select assert(
+  (public.question_for_pair_day('aaaa0000-0000-0000-0000-00000000aaaa', 0)).id is not null,
+  'while their own pairing answers exactly as before'
+);
 
 reset role;
 
