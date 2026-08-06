@@ -139,11 +139,22 @@ const RAMP: readonly string[] = [
  * tail is generated, the rules live in code, and adding a question becomes "append
  * it to its axis file".
  *
- * DETERMINISM IS NOT OPTIONAL. SEQUENCE is built once at module load and
- * questionForDay must be a pure function of the day index — two server instances
- * disagreeing about day 200 would serve a couple different questions depending on
- * which one handled the request. No shuffling, no clock, no randomness: same bank
- * in, same order out, on every machine, forever.
+ * DETERMINISM IS NOT OPTIONAL, and it is now enforced somewhere else.
+ *
+ * This used to say questionForDay must be a pure function of the day index, because
+ * two server instances disagreeing about day 200 would serve a couple different
+ * questions depending on which one answered. That reasoning still holds. What changed
+ * is where the guarantee lives: since 0022 the database records which question a pair
+ * was asked on which day, so the answer is looked up rather than recomputed, and two
+ * instances cannot disagree about a row.
+ *
+ * SEQUENCE and questionForDay below are no longer the app's path. They are kept
+ * because `questions.sequence_position` and the SQL question_for_day(int) still exist
+ * and the tests below still describe what that rotation guarantees. Removing them is
+ * its own commit — doing it here would mean two things to unpick if the flip needs
+ * reverting.
+ *
+ * The live ordering is spiralFor(pace), further down.
  */
 
 /** Axes that ask something costly. Never two in a row if it can be helped. */
@@ -267,9 +278,10 @@ const BY_ID = new Map(QUESTIONS.map((q) => [q.id, q]))
    The spiral
    ---------------------------------------------------------------------------
 
-   Built, tested and measured here; not yet serving anybody. `questionForDay` still
-   walks SEQUENCE above, and switching it over is the change that needs the per-pair
-   skip and the pace column, because it reorders from day 13 rather than day 72.
+   This is the live ordering. The database holds one copy per pace, generated from
+   these functions by `npm run seed:questions`, and question_for_pair_day walks it —
+   so this file is the author of the order and Postgres is where a pair's own history
+   of it is recorded.
 
    ── Why the ramp is being replaced ────────────────────────────────────────
 
@@ -522,14 +534,14 @@ export function questionById(id: string): Question | undefined {
 }
 
 /**
- * Which question a pair sees on a given day. Pure function of the day index —
- * no scheduler, no cron, no backfill. A pair created ninety seconds ago has
- * today's question immediately, and a pair that goes dormant for a month
- * resumes exactly where the arithmetic says it should.
+ * The old rotation. NOT what the app serves any more.
  *
- * The first pass walks SEQUENCE in order, ramp intact. After that it cycles the
- * renewable subset only. Running dry is a content problem, and the fix is more
- * questions rather than repeats that pay out for remembering.
+ * Superseded by question_for_pair_day in the database, which respects the pair's pace
+ * and never re-asks a question they have already had. Kept in step with the SQL
+ * question_for_day(int) that still exists, and still covered by the tests describing
+ * what the ramp guaranteed.
+ *
+ * If you are looking for what a couple sees today, it is a row in pair_days.
  */
 export function questionForDay(dayIndex: number): Question {
   const day = Math.max(0, Math.floor(dayIndex))

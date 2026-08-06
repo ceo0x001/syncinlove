@@ -7,6 +7,7 @@ import {
   exportArchive,
   revokeClaim,
   signOutSession,
+  setPace,
   updateNotifyPrefs,
   updateProfile,
 } from '@/app/actions'
@@ -750,6 +751,102 @@ export function NotifyForm({ me }: { me: Me }) {
 
       <Button type="submit" variant="quiet" disabled={pending}>
         {pending ? 'Saving…' : 'Save email choices'}
+      </Button>
+    </form>
+  )
+}
+
+/**
+ * How fast the questions escalate.
+ *
+ * Exists because users asked for the axes to be "shuffled" — they wanted sex and the
+ * future to turn up without waiting a month. Every pace now shows all eight axes in
+ * the first fortnight, so this is not about which subjects you get. It is about how
+ * quickly the asking gets harder.
+ *
+ * Framed as a choice rather than a default because the complaint was never unanimous:
+ * some couples want the deep end sooner and others do not, and the same question
+ * arrives for both partners at once. A setting is the honest answer to that; moving
+ * everybody would just swap whose preference is ignored.
+ *
+ * No confirmation step, deliberately. It changes only what comes next, it is
+ * reversible, and nothing already asked can move — so the cost of getting it wrong is
+ * one question you did not expect.
+ */
+export function PaceForm({ pace }: { pace: 'gentle' | 'standard' | 'bold' }) {
+  const [state, formAction, pending] = useActionState(setPace, null)
+
+  const options = [
+    {
+      id: 'gentle',
+      label: 'Gentle',
+      detail: 'Easier questions for the first six weeks. The hard ones still come.',
+    },
+    {
+      id: 'standard',
+      label: 'Standard',
+      detail: 'A steady climb. Most couples want this.',
+    },
+    {
+      id: 'bold',
+      label: 'Bold',
+      detail: 'Straight into the deep end. Nothing is held back for long.',
+    },
+  ] as const
+
+  return (
+    <form action={formAction} className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
+      <div>
+        <p className="t-label mb-1 block">Pace</p>
+        <p className="t-small mb-3 text-ink-muted">
+          Every pace asks about everything — all eight subjects turn up in your first
+          fortnight. This is how fast they get harder. Either of you can change it, and
+          it only affects questions you haven’t been asked yet.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {options.map((option) => (
+          <label
+            key={option.id}
+            /*
+              Highlighted from the radio, not from the saved value.
+
+              This read `pace === option.id`, which meant the coral border stayed on
+              whatever was saved while the radio dot moved to whatever you clicked —
+              measured on screen: click Bold and the border was still on Standard. A
+              control that shows two different answers at once is worse than one that
+              shows none, and it only corrected itself after a save.
+
+              The highlight lives in globals.css as `.pace-option:has(input:checked)`,
+              so the radio decides and there is no second copy of the selection.
+            */
+            className={
+              'pace-option flex cursor-pointer items-start gap-3 rounded-[0.625rem] ' +
+              'border border-hairline bg-paper-raised px-4 py-3 ' +
+              'transition-all duration-150 hover:border-hairline-strong'
+            }
+          >
+            <input
+              type="radio"
+              name="pace"
+              value={option.id}
+              defaultChecked={pace === option.id}
+              className="mt-1 accent-[var(--accent)]"
+            />
+            <span className="min-w-0">
+              <span className="t-body block text-ink">{option.label}</span>
+              <span className="t-small block text-ink-muted">{option.detail}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      {state?.error ? <Notice tone="error">{state.error}</Notice> : null}
+      {state?.ok ? <Notice>Saved. It applies from your next question.</Notice> : null}
+
+      <Button type="submit" variant="quiet" disabled={pending}>
+        {pending ? 'Saving…' : 'Save pace'}
       </Button>
     </form>
   )

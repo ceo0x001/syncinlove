@@ -313,6 +313,29 @@ body::before {
    glance; --fill is set inline from React.
    --------------------------------------------------------------------------- */
 
+/*
+ * A pace option, highlighted from its own radio.
+ *
+ * The radio is the single source of truth for which option looks selected. The first
+ * version bound the highlight to the SAVED pace instead, so clicking a different
+ * option moved the radio dot while the coral border stayed where it was — a control
+ * showing two answers at once, correcting itself only after a save.
+ *
+ * Mirroring the selection into React state would fix the symptom by adding a second
+ * copy of something the DOM already knows, which is the same shape of bug one level
+ * up. `:has()` has no copy to drift.
+ *
+ * Written here rather than as a `has-[:checked]:` utility for legibility, not because
+ * the utility was proven broken — I claimed that in an earlier version of this comment
+ * on the strength of a measurement that was actually racing the 150ms border
+ * transition. Both readings were wrong for the same reason, and an unverified claim
+ * about this codebase recorded in this codebase is worse than no comment.
+ */
+.pace-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
 .sync-range {
   appearance: none;
   -webkit-appearance: none;

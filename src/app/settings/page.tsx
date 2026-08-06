@@ -10,6 +10,7 @@ import {
   ExportButton,
   RevokeClaimForm,
   NotifyForm,
+  PaceForm,
   ProfileForm,
   SignOutForm,
 } from '@/components/settings-forms'
@@ -73,6 +74,18 @@ export default async function SettingsPage() {
             </div>
           </>
         )}
+
+        {/*
+          Only shown to a paired couple: pace is a property of the pairing, and
+          set_pace raises without one. Above the notification prefs because it changes
+          what the app asks you, which matters more than how it tells you.
+        */}
+        {home.pair && home.partner ? (
+          <>
+            <Rule />
+            <PaceForm pace={home.pair.pace} />
+          </>
+        ) : null}
 
         <Rule />
 

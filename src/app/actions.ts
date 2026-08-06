@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createInvite, hashToken } from '@/lib/invite/token'
-import { questionForDay } from '@/lib/questions/bank'
+import { questionById } from '@/lib/questions/bank'
 import { validatePayload } from '@/lib/questions/validate'
 import { isValidTimeZone } from '@/lib/sync/day'
 import { MENU_PRICE_CEILING, tender } from '@/lib/tender'
@@ -193,7 +193,27 @@ export async function submitAnswer(
     return { error: 'Something went wrong reading today’s question.' }
   }
 
-  const question = questionForDay(dayIndex)
+  /*
+    The same question the database will validate against.
+
+    Asked rather than derived, and that is the point of 0022: submit_answer looks the
+    question up itself and re-checks every facet, so if this resolved a different one
+    the submission would fail on a facet id that does not exist. One authority, asked
+    twice, cannot disagree with itself.
+  */
+  const supabase = await createClient()
+  const { data: pairId } = await supabase.rpc('current_pair_id')
+  if (!pairId) return { error: 'You are not paired yet.' }
+
+  const { data: assigned, error: assignError } = await supabase.rpc('question_for_pair_day', {
+    p_pair_id: pairId,
+    p_day_index: dayIndex,
+  })
+  const assignedRow = Array.isArray(assigned) ? assigned[0] : assigned
+  const question = assignedRow?.id ? questionById(assignedRow.id as string) : undefined
+  if (assignError || !question) {
+    return { error: 'Something went wrong reading today’s question.' }
+  }
 
   let self: unknown
   let guess: unknown
@@ -210,7 +230,6 @@ export async function submitAnswer(
   const guessCheck = validatePayload(question, guess)
   if (!guessCheck.ok) return { error: guessCheck.error }
 
-  const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -974,5 +993,35 @@ export async function deletePushSubscription(endpoint: string): Promise<ActionRe
   if (error) return { error: error.message }
 
   revalidatePath('/settings')
+  return { ok: true }
+}
+
+/**
+ * The pairing's pace.
+ *
+ * Set by either partner and applied to the pairing, not the person — the same question
+ * arrives for both of them, so there is no coherent way to hold two paces at once.
+ *
+ * Nothing already asked moves. pair_days records what a couple has had and
+ * question_for_pair_day never returns a question they already have a row for, so
+ * changing pace only changes what comes next.
+ */
+export async function setPace(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const pace = String(formData.get('pace') ?? '')
+  // Checked here as well as in SQL. The database is the authority — this exists so a
+  // fat-fingered form gets a sentence instead of a Postgres error string.
+  if (!['gentle', 'standard', 'bold'].includes(pace)) {
+    return { error: 'Pick one of the three paces.' }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('set_pace', { p_pace: pace })
+  if (error) return { error: error.message }
+
+  revalidatePath('/settings')
+  revalidatePath('/')
   return { ok: true }
 }

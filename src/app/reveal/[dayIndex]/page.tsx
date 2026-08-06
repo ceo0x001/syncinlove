@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { RevealView } from '@/components/reveal-view'
 import { SetupNotice } from '@/components/setup-notice'
 import { Button, Notice, Screen, Wordmark } from '@/components/ui'
-import { questionForDay } from '@/lib/questions/bank'
+import { questionById } from '@/lib/questions/bank'
 import type { AnswerPayload } from '@/lib/questions/types'
 import { isConfigured } from '@/lib/supabase/env'
 import { createClient } from '@/lib/supabase/server'
@@ -42,7 +42,10 @@ export default async function RevealPage({
   const supabase = await createClient()
   const { data: reveal } = await supabase
     .from('reveals')
-    .select('day_index, sync_score, payload')
+    // question_id, so an old reveal keeps the question it was actually asked. The
+    // ordering has been reshaped several times; re-deriving from the day index would
+    // relabel history every time the bank changes.
+    .select('day_index, sync_score, payload, question_id')
     .eq('pair_id', home.pair.id)
     .eq('day_index', dayIndex)
     .maybeSingle()
@@ -64,6 +67,9 @@ export default async function RevealPage({
       </Screen>
     )
   }
+
+  const question = questionById(reveal.question_id as string)
+  if (!question) notFound()
 
   const payload = reveal.payload as RevealPayload
   const mine = payload.a.user_id === home.me.id ? payload.a : payload.b
@@ -93,7 +99,7 @@ export default async function RevealPage({
   return (
     <Screen>
       <RevealView
-        question={questionForDay(dayIndex)}
+        question={question}
         dayIndex={dayIndex}
         syncScore={reveal.sync_score}
         streak={streakThen}

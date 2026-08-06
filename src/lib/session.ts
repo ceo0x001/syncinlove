@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { createClient } from '@/lib/supabase/server'
-import { questionForDay } from '@/lib/questions/bank'
+import { questionById } from '@/lib/questions/bank'
 import type { Question } from '@/lib/questions/types'
 import { addDays, currentDayIndex, openDayIndexes, secondsUntilRollover, streakFrom } from '@/lib/sync/day'
 import { inviteUrl, tokenFromNonce } from '@/lib/invite/token'
@@ -59,6 +59,8 @@ export interface PairInfo {
   timeZone: string
   dayZero: string
   status: 'pending' | 'active' | 'ended'
+  /** How fast the questions escalate. Set by either partner, applies to both. */
+  pace: 'gentle' | 'standard' | 'bold'
 }
 
 export interface InviteInfo {
@@ -306,7 +308,7 @@ export async function loadHome(): Promise<HomeState | null> {
 
   const { data: pairRow } = await supabase
     .from('pairs')
-    .select('id, time_zone, day_zero, status')
+    .select('id, time_zone, day_zero, status, pace')
     .neq('status', 'ended')
     .limit(1)
     .maybeSingle()
@@ -331,6 +333,9 @@ export async function loadHome(): Promise<HomeState | null> {
     timeZone: pairRow.time_zone,
     dayZero: pairRow.day_zero,
     status: pairRow.status,
+    // Defaulted here as well as in the column, so a pairing created before 0022 and
+    // read by a stale cache renders a real control instead of an empty radio group.
+    pace: (pairRow.pace as PairInfo['pace']) ?? 'standard',
   }
 
   const now = new Date()
@@ -373,6 +378,29 @@ export async function loadHome(): Promise<HomeState | null> {
   const myAnsweredDays = new Set((myAnswersRes.data ?? []).map((r) => r.day_index as number))
   const revealedDays = new Set((revealsRes.data ?? []).map((r) => r.day_index as number))
 
+  /*
+    Which question each open day is, from the database.
+
+    The database decides and TypeScript renders — see 0022. It returns an id and the
+    copy is looked up here, because prompts and labels live in TypeScript: rewording a
+    question must never touch a stored answer, so Postgres holds only what it scores.
+
+    One round trip per open day, and there are at most two — the same shape as the
+    partner_answered calls below. Not batched into one RPC: the function assigns as
+    well as reads, so a batch would be a single call that writes two rows, and the
+    per-day version is what the concurrency test in phase10 actually exercises.
+  */
+  const openQuestionIds = await Promise.all(
+    openIndexes.map(async (dayIndex) => {
+      const { data } = await supabase.rpc('question_for_pair_day', {
+        p_pair_id: pair.id,
+        p_day_index: dayIndex,
+      })
+      const row = Array.isArray(data) ? data[0] : data
+      return (row?.id as string | undefined) ?? null
+    }),
+  )
+
   // One round trip per open day, and there are at most two.
   const partnerFlags = await Promise.all(
     openIndexes.map(async (dayIndex) => {
@@ -385,14 +413,26 @@ export async function loadHome(): Promise<HomeState | null> {
 
   const today = currentDayIndex(now, pair.dayZero, pair.timeZone)
 
-  const openDays: OpenDay[] = openIndexes.map((dayIndex, i) => ({
-    dayIndex,
-    question: questionForDay(dayIndex),
-    answered: myAnsweredDays.has(dayIndex),
-    partnerAnswered: partnerFlags[i],
-    revealed: revealedDays.has(dayIndex),
-    isGrace: dayIndex < today,
-  }))
+  /*
+    A day whose question cannot be resolved is dropped rather than guessed.
+
+    Guessing means rendering one question while submit_answer validates against
+    another, and every submission then fails on a facet id that does not exist. A
+    missing day is visible and recoverable; a mismatched one looks like the app is
+    broken for no reason.
+  */
+  const openDays: OpenDay[] = openIndexes.flatMap((dayIndex, i) => {
+    const question = openQuestionIds[i] ? questionById(openQuestionIds[i]!) : undefined
+    if (!question) return []
+    return [{
+      dayIndex,
+      question,
+      answered: myAnsweredDays.has(dayIndex),
+      partnerAnswered: partnerFlags[i],
+      revealed: revealedDays.has(dayIndex),
+      isGrace: dayIndex < today,
+    }]
+  })
 
   let invite: InviteInfo | null = null
   if (inviteRes.data) {
@@ -653,22 +693,29 @@ export async function loadHistory(): Promise<History | null> {
 
   const { data } = await supabase
     .from('reveals')
-    .select('day_index, sync_score, revealed_at')
+    // question_id, because a reveal already records which question it was. That is
+    // the authoritative answer for a past day and it cannot drift — re-deriving it
+    // from an ordering that has since been reshaped would relabel old history.
+    .select('day_index, sync_score, revealed_at, question_id')
     .eq('pair_id', pairRow.id)
     .order('day_index', { ascending: false })
 
   const rows = data ?? []
 
-  const entries: HistoryEntry[] = rows.map((row) => {
-    const question = questionForDay(row.day_index as number)
-    return {
+  const entries: HistoryEntry[] = rows.flatMap((row) => {
+    const question = questionById(row.question_id as string)
+    // A reveal referencing a question no longer in the bank: skip the row rather
+    // than render an empty prompt. Only reachable if an id were deleted, which the
+    // foreign key forbids.
+    if (!question) return []
+    return [{
       dayIndex: row.day_index as number,
       syncScore: row.sync_score as number,
       prompt: question.prompt,
       category: question.category,
       date: addDays(pairRow.day_zero as string, row.day_index as number),
       revealedAt: row.revealed_at as string,
-    }
+    }]
   })
 
   const total = entries.length
