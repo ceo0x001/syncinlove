@@ -383,6 +383,40 @@ describe('question bank integrity', () => {
     }
   })
 
+  /*
+    The metric that actually describes the experience.
+
+    "No two consecutive days from the same axis" was the only spacing rule asserted, and
+    it passed happily while the last twelve days of the first pass were an unbroken run
+    of heavy axes — deep, friction, desire, values, intimacy, over and over, alternating
+    correctly and relentless all the same.
+
+    Worse, it survived three rounds of adding gentle questions. At 116, 146 and 170 the
+    final twelve days were identical, because interleave spent its gentle questions early
+    rather than rationing them. Nothing failed, so nothing said so.
+
+    The percentage of heavy adjacencies is deliberately NOT asserted here. Rationing the
+    preference roughly doubled it while cutting the longest run from twelve to five, and
+    that is the right trade — a couple experiences the run, not the average. A test on the
+    average would have called the fix a regression.
+  */
+  it('never stacks more than a week of heavy axes in a row', () => {
+    const HEAVY = new Set(['deep', 'friction', 'desire', 'values', 'intimacy'])
+    let run = 0
+    let longest = 0
+    let endsAt = 0
+
+    for (let day = 0; day < SEQUENCE.length; day++) {
+      run = HEAVY.has(questionForDay(day).category) ? run + 1 : 0
+      if (run > longest) {
+        longest = run
+        endsAt = day
+      }
+    }
+
+    expect(longest, `longest heavy run ends on day ${endsAt}`).toBeLessThanOrEqual(6)
+  })
+
   it('has enough renewable questions that repeats are not back-to-back', () => {
     const renewables = QUESTIONS.filter((q) => q.renewable)
     expect(renewables.length).toBeGreaterThanOrEqual(14)

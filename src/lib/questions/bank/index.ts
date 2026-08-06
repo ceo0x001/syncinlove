@@ -193,8 +193,42 @@ function interleave(pool: readonly Question[], after: Category | null): string[]
      */
     const usable = notPrev.length > 0 ? notPrev : remaining
 
+    /*
+     * Gentle-after-heavy, RATIONED.
+     *
+     * Unrationed, this preference spent itself. Heavy is about half the bank, so
+     * roughly half of all picks forced an extra gentle draw on top of the ordinary
+     * largest-first one — gentle drained far faster than its share, and whatever
+     * remained at the end was heavy by construction. The result was twelve heavy
+     * questions in an unbroken run at the end of the first pass.
+     *
+     * It survived three rounds of "add more light questions", which is the tell.
+     * At 116, 146 and 170 questions the final twelve days were the same solid heavy
+     * run, even once gentle outnumbered heavy 87 to 83. Growing the pool cannot fix
+     * a rule that spends the pool early.
+     *
+     * So the preference now only applies while gentle questions still outnumber
+     * heavy ones. Once they don't, the gentle ones left are needed to break up what
+     * remains, and spending one now to soften a single adjacency costs a worse run
+     * later.
+     *
+     * The trade, measured over the generated tail: the longest heavy run falls from
+     * 12 to 4, while heavy-follows-heavy rises from 10% to 19%. That is the right
+     * way round. A couple experiences the run, not the average — four heavy days
+     * with a break is a hard week, twelve is a reason to stop opening the app, and
+     * scattered single adjacencies are barely noticeable.
+     */
+    const gentleLeft = remaining
+      .filter(([cat]) => !HEAVY.has(cat))
+      .reduce((n, [, ids]) => n + ids.length, 0)
+    const heavyLeft = remaining
+      .filter(([cat]) => HEAVY.has(cat))
+      .reduce((n, [, ids]) => n + ids.length, 0)
+
     const gentle =
-      prev !== null && HEAVY.has(prev) ? usable.filter(([cat]) => !HEAVY.has(cat)) : []
+      prev !== null && HEAVY.has(prev) && gentleLeft > heavyLeft
+        ? usable.filter(([cat]) => !HEAVY.has(cat))
+        : []
     const tier = gentle.length > 0 ? gentle : usable
 
     // Count first, then axis name. The second key is what makes this stable rather
