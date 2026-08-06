@@ -409,4 +409,60 @@ export const FRICTION: Question[] = [
       },
     ],
   },
+  {
+    id: 'q-worst-timing',
+    category: 'friction',
+    renewable: false,
+    prompt: 'The worst possible moment to raise something difficult with you.',
+    facets: [
+      {
+        kind: 'choice',
+        id: 'when',
+        ask: 'When is it?',
+        askAbout: 'When is it for {them}?',
+        options: [
+          { id: 'tired', label: 'When I’m tired or hungry' },
+          { id: 'busy', label: 'Mid-task, when I’m concentrating' },
+          { id: 'bed', label: 'Last thing at night' },
+          { id: 'others', label: 'When anyone else can hear' },
+        ],
+      },
+      {
+        kind: 'scale',
+        id: 'matters',
+        ask: 'How much does timing change how you take it?',
+        askAbout: 'How much does timing matter to {them}?',
+        minLabel: 'Not much',
+        maxLabel: 'It changes everything',
+      },
+    ],
+  },
+  {
+    id: 'q-small-annoyance',
+    category: 'friction',
+    renewable: true,
+    prompt: 'The small thing that gets to you more than it deserves to.',
+    facets: [
+      {
+        kind: 'choice',
+        id: 'kind',
+        ask: 'What sort of thing is it?',
+        askAbout: 'What sort of thing for {them}?',
+        options: [
+          { id: 'noise', label: 'A sound, or mess, or clutter' },
+          { id: 'late', label: 'Being kept waiting' },
+          { id: 'repeat', label: 'Being told something I already know' },
+          { id: 'phone', label: 'Talking to someone looking at a screen' },
+        ],
+      },
+      {
+        kind: 'scale',
+        id: 'often',
+        ask: 'How often has it happened lately?',
+        askAbout: 'How often for {them}?',
+        minLabel: 'Not lately',
+        maxLabel: 'Most days',
+      },
+    ],
+  },
 ]

@@ -383,4 +383,60 @@ export const DESIRE: Question[] = [
       },
     ],
   },
+  {
+    id: 'q-first-noticed',
+    category: 'desire',
+    renewable: false,
+    prompt: 'What you noticed first about them.',
+    facets: [
+      {
+        kind: 'choice',
+        id: 'what',
+        ask: 'What was it?',
+        askAbout: 'What does {them} say it was?',
+        options: [
+          { id: 'face', label: 'Their face' },
+          { id: 'body', label: 'How they moved, or carried themselves' },
+          { id: 'talk', label: 'The way they talked' },
+          { id: 'attention', label: 'How they paid attention to me' },
+        ],
+      },
+      {
+        kind: 'scale',
+        id: 'still',
+        ask: 'How much does that still do it for you?',
+        askAbout: 'How much does it still do it for {them}?',
+        minLabel: 'Something else does now',
+        maxLabel: 'Exactly as much',
+      },
+    ],
+  },
+  {
+    id: 'q-wanted-pace',
+    category: 'desire',
+    renewable: true,
+    prompt: 'Being wanted slowly, or being wanted urgently.',
+    facets: [
+      {
+        kind: 'scale',
+        id: 'pace',
+        ask: 'Where are you this month?',
+        askAbout: 'Where is {them} this month?',
+        minLabel: 'Slow, drawn out',
+        maxLabel: 'Urgent, right now',
+      },
+      {
+        kind: 'choice',
+        id: 'why',
+        ask: 'What’s putting you there?',
+        askAbout: 'What’s putting {them} there?',
+        options: [
+          { id: 'busy', label: 'How full everything is' },
+          { id: 'distance', label: 'How much time we’ve had together' },
+          { id: 'mood', label: 'Where my head is generally' },
+          { id: 'usual', label: 'Nothing — that’s just me', neutral: true },
+        ],
+      },
+    ],
+  },
 ]

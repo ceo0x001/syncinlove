@@ -437,4 +437,88 @@ export const VALUES: Question[] = [
       },
     ],
   },
+  {
+    id: 'q-promise-broken',
+    category: 'values',
+    renewable: false,
+    prompt: 'A promise gets broken. Small, but definite.',
+    facets: [
+      {
+        kind: 'choice',
+        id: 'matters',
+        ask: 'What matters most about it?',
+        askAbout: 'What matters most to {them}?',
+        options: [
+          { id: 'told', label: 'Whether they told me themselves' },
+          { id: 'why', label: 'Whether the reason was good' },
+          { id: 'again', label: 'Whether it’s happened before' },
+          { id: 'size', label: 'How much it actually cost me' },
+        ],
+      },
+      {
+        kind: 'scale',
+        id: 'cost',
+        ask: 'How much does a broken small promise cost you?',
+        askAbout: 'How much does it cost {them}?',
+        minLabel: 'Barely registers',
+        maxLabel: 'It changes how I see someone',
+      },
+    ],
+  },
+  {
+    id: 'q-obligation-reach',
+    category: 'values',
+    renewable: false,
+    prompt: 'How far your obligation to other people reaches.',
+    facets: [
+      {
+        kind: 'choice',
+        id: 'edge',
+        ask: 'Where’s the edge of it?',
+        askAbout: 'Where’s the edge for {them}?',
+        options: [
+          { id: 'inner', label: 'The few people closest to me' },
+          { id: 'circle', label: 'Friends and family, broadly' },
+          { id: 'community', label: 'Anyone in front of me who needs it' },
+          { id: 'everyone', label: 'It doesn’t really have an edge' },
+        ],
+      },
+      {
+        kind: 'scale',
+        id: 'cost',
+        ask: 'How much of your own comfort would you spend on it?',
+        askAbout: 'How much would {them} spend?',
+        minLabel: 'Not much',
+        maxLabel: 'A great deal',
+      },
+    ],
+  },
+  {
+    id: 'q-told-in-confidence',
+    category: 'values',
+    renewable: false,
+    prompt: 'Someone tells you something in confidence about a person you both love.',
+    facets: [
+      {
+        kind: 'choice',
+        id: 'do',
+        ask: 'What do you do?',
+        askAbout: 'What does {them} do?',
+        options: [
+          { id: 'keep', label: 'Keep it. I was told in confidence' },
+          { id: 'tell', label: 'Tell them — they should know' },
+          { id: 'push', label: 'Push the person to say it themselves' },
+          { id: 'depends', label: 'Depends entirely what it is' },
+        ],
+      },
+      {
+        kind: 'scale',
+        id: 'certainty',
+        ask: 'How sure are you about that?',
+        askAbout: 'How sure is {them}?',
+        minLabel: 'Genuinely torn',
+        maxLabel: 'No doubt at all',
+      },
+    ],
+  },
 ]

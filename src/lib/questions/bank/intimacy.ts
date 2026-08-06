@@ -417,4 +417,60 @@ export const INTIMACY: Question[] = [
       },
     ],
   },
+  {
+    id: 'q-afterwards',
+    category: 'intimacy',
+    renewable: false,
+    prompt: 'Afterwards.',
+    facets: [
+      {
+        kind: 'choice',
+        id: 'want',
+        ask: 'What do you actually want?',
+        askAbout: 'What does {them} want?',
+        options: [
+          { id: 'held', label: 'To be held, for a while' },
+          { id: 'talk', label: 'To talk' },
+          { id: 'quiet', label: 'Quiet, close, no words' },
+          { id: 'space', label: 'A bit of space, honestly' },
+        ],
+      },
+      {
+        kind: 'scale',
+        id: 'matters',
+        ask: 'How much does that part matter to you?',
+        askAbout: 'How much does it matter to {them}?',
+        minLabel: 'Not much',
+        maxLabel: 'As much as the rest',
+      },
+    ],
+  },
+  {
+    id: 'q-mood-turns',
+    category: 'intimacy',
+    renewable: true,
+    prompt: 'What most reliably moves you from not-in-the-mood to in-the-mood.',
+    facets: [
+      {
+        kind: 'choice',
+        id: 'what',
+        ask: 'What does it?',
+        askAbout: 'What does it for {them}?',
+        options: [
+          { id: 'touch', label: 'Being touched without it going anywhere' },
+          { id: 'words', label: 'Being told something' },
+          { id: 'load', label: 'Something being taken off my plate' },
+          { id: 'time', label: 'Time — knowing nobody needs me' },
+        ],
+      },
+      {
+        kind: 'scale',
+        id: 'reliable',
+        ask: 'How reliable is it?',
+        askAbout: 'How reliable is it for {them}?',
+        minLabel: 'Hit and miss',
+        maxLabel: 'Works every time',
+      },
+    ],
+  },
 ]
