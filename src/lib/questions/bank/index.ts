@@ -1,4 +1,4 @@
-import type { Category, Question } from '../types'
+import type { Category, Intensity, Question } from '../types'
 import { LIGHT } from './light'
 import { LOGISTICS } from './logistics'
 import { DEEP } from './deep'
@@ -262,6 +262,250 @@ export const SEQUENCE: string[] = [
 ]
 
 const BY_ID = new Map(QUESTIONS.map((q) => [q.id, q]))
+
+/* ---------------------------------------------------------------------------
+   The spiral
+   ---------------------------------------------------------------------------
+
+   Built, tested and measured here; not yet serving anybody. `questionForDay` still
+   walks SEQUENCE above, and switching it over is the change that needs the per-pair
+   skip and the pace column, because it reorders from day 13 rather than day 72.
+
+   ── Why the ramp is being replaced ────────────────────────────────────────
+
+   Real users asked for the axes to be "shuffled" — they wanted sex, the future and
+   the rest to turn up without waiting a month. The ramp holds desire to week 5 and
+   the heaviest intimacy deep into the rotation.
+
+   Literal shuffling is the one thing not to build. It breaks determinism, it has no
+   build to it — random is unpredictable, not anticipating — and often enough it
+   would serve "What do you suspect I don't fully know about you" on somebody's
+   second day, which is precisely the failure the ramp exists to prevent.
+
+   What they described is a spiral: every axis present from the start, each lap
+   deeper. That needs intensity, which is why `Intensity` exists.
+
+   ── The opener is hand-written, and it is the part that answers the complaint ──
+
+   Thirteen days, every axis, all of it intensity 1. Not generated, for two reasons.
+
+   The first is that a greedy generator cannot do this. `interleave` takes from the
+   largest remaining axis, and in band 1 that is light (28) and logistics (27) —
+   intimacy has 5. Left to the algorithm, the small axes wait, which reproduces the
+   exact complaint. Coverage in the first fortnight is a promise, so it is stated
+   rather than hoped for.
+
+   The second is that these are somebody's first two weeks of the product. Day 0 is
+   deliberately still `q-sleep`, so nothing changes for a pair on their first day.
+
+   Ordered under both spacing rules — no axis twice in a row, nothing heavy on
+   consecutive days — and sex arrives on day 10 as a preference question rather than
+   as an interrogation.
+   --------------------------------------------------------------------------- */
+
+const OPENER: readonly string[] = [
+  'q-sleep', //             light
+  'q-help-this-week', //    logistics
+  'q-good-at', //           light
+  'q-next-trip', //         future
+  'q-when-quiet', //        deep
+  'q-laugh', //             light
+  'q-flirt', //             desire
+  'q-energy-clock', //      logistics
+  'q-tone', //              friction
+  'q-comfort-food', //      light
+  'q-anticipation', //      intimacy
+  'q-how-tired', //         logistics
+  'q-money-instinct', //    values
+] as const
+
+export type Pace = 'gentle' | 'standard' | 'bold'
+
+/**
+ * Which band each slot draws from, as a repeating pattern.
+ *
+ * A pattern rather than a percentage because it has to be legible: you can read the
+ * shape of a couple's fortnight off the array. It repeats until the bands run dry.
+ *
+ * Band sizes are 89 / 55 / 26, so `standard` is close to proportional — every band
+ * drains at roughly the same rate, which spreads all three intensities across the
+ * whole run instead of stacking them at either end.
+ *
+ * `gentle` front-loads band 1, so it ends heavier: the easy questions are spent
+ * early and what remains is what remains. `bold` does the reverse and ends light.
+ * That is inherent to a finite bank and worth stating rather than discovering — you
+ * cannot have the hard questions early AND late without writing more of them.
+ */
+const PACE_FRONT: Record<Pace, readonly Intensity[]> = {
+  gentle: [1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 3],
+  standard: [1, 2, 1, 2, 1, 3, 1, 2, 1, 2, 1, 3],
+  bold: [1, 2, 3, 1, 2, 2, 1, 3, 2, 1, 2, 3],
+}
+
+/**
+ * How long the pace's own pattern lasts before every pace converges.
+ *
+ * Six weeks. Long enough to be the couple's whole experience of "what is this app
+ * like", short enough that no pace paints itself into a corner.
+ */
+const FRONT_DAYS = 42
+
+/**
+ * What every pace settles into: band 1 half the time, and never two heavier slots
+ * back to back.
+ *
+ * Both halves of that are load-bearing, and both were learned the hard way.
+ *
+ * Half, because band 1 is 89 of 170 questions — 52%. Any pace that draws band 1 more
+ * often than that runs out of it and finishes on bands 2 and 3, which is the same
+ * spend-the-pool-early trap that gave `interleave` its twelve-day heavy run. A pace
+ * cannot be gentle for the whole distance; a finite bank does not allow it. It can
+ * only be gentle first, which is what FRONT_DAYS is for.
+ *
+ * Never adjacent, because bands 2 and 3 are heavy-dominated by construction — the
+ * gentle axes are mostly intensity 1, so band 2 is 40 heavy against 15 gentle and
+ * band 3 is 20 against 6. Two heavier slots in a row is therefore very close to two
+ * heavy questions in a row no matter how the axis rules vote. The earlier patterns
+ * had runs of three such slots and produced seven-day heavy stretches at gentle and
+ * standard; bold, whose band-1 slots happened to be evenly spread, was the only one
+ * that passed. One pace passing by luck is not a design.
+ */
+const PACE_TAIL: readonly Intensity[] = [1, 2, 1, 2, 1, 3, 1, 2, 1, 2, 1, 3]
+
+/**
+ * One pace's full ordering: the opener, then everything else spiralled.
+ *
+ * Still a permutation of QUESTIONS at every pace — the pattern chooses which band to
+ * draw from, and a band that is empty falls through to the others, so nothing is
+ * dropped and nothing is served twice.
+ *
+ * Axis spacing survives because the pick inside a band reuses the same rules
+ * `interleave` uses: largest remaining axis that is not the one just served,
+ * preferring a gentle axis after a heavy one while gentle questions can be spared.
+ */
+export function spiralFor(pace: Pace): string[] {
+  const opened = new Set<string>(OPENER)
+  const front = PACE_FRONT[pace]
+
+  // One queue per (band, axis), each already in axis-spaced order within its band.
+  const queues = new Map<string, string[]>()
+  for (const band of [1, 2, 3] as Intensity[]) {
+    const inBand = QUESTIONS.filter((q) => q.intensity === band && !opened.has(q.id))
+    for (const id of interleave(inBand, null)) {
+      const cat = BY_ID.get(id)!.category
+      const key = `${band}:${cat}`
+      const list = queues.get(key)
+      if (list) list.push(id)
+      else queues.set(key, [id])
+    }
+  }
+
+  const out = [...OPENER]
+  let prev = BY_ID.get(OPENER[OPENER.length - 1])!.category
+  let slot = 0
+
+  for (;;) {
+    const live = [...queues.entries()].filter(([, ids]) => ids.length > 0)
+    if (live.length === 0) break
+
+    /* The pace's own shape for six weeks, then the shared proportional one. */
+    const wanted =
+      slot < FRONT_DAYS
+        ? front[slot % front.length]
+        : PACE_TAIL[(slot - FRONT_DAYS) % PACE_TAIL.length]
+    slot++
+
+    /*
+     * Bands are tried in order of how far they are from the one the pattern asked
+     * for, so an empty or blocked band degrades to its nearest neighbour rather
+     * than to whatever happens to be biggest. Asking for a 1 and getting a 2 is a
+     * much smaller surprise than asking for a 1 and getting a 3.
+     */
+    const byDistance = ([1, 2, 3] as Intensity[]).sort(
+      (a, b) => Math.abs(a - wanted) - Math.abs(b - wanted) || a - b,
+    )
+
+    /*
+     * Two passes, and the second one is the fix for a real bug.
+     *
+     * With one pass, a band that only had the just-served axis left would emit it
+     * anyway — the same-axis fallback was scoped to the band rather than to the whole
+     * pool. So at standard pace days 168 and 169 were both `values`, and the heavy
+     * run at the tail reached nine, while every other pace passed. Wanting a band is
+     * a preference; not repeating an axis is a rule, so the rule has to be tried
+     * across all three bands before the preference gives up.
+     *
+     * The prev-axis pass still exists because the alternative is dropping questions,
+     * and a visibly imperfect ordering beats a silently incomplete bank. The
+     * no-consecutive-axis test is what makes it loud if it is ever reached.
+     */
+    let picked: string | null = null
+    for (const allowPrev of [false, true]) {
+      if (picked !== null) break
+
+      for (const band of byDistance) {
+        const candidates = live.filter(([key]) => key.startsWith(`${band}:`))
+        if (candidates.length === 0) continue
+
+        const notPrev = candidates.filter(([key]) => key.slice(2) !== prev)
+        if (notPrev.length === 0 && !allowPrev) continue
+        const usable = notPrev.length > 0 ? notPrev : candidates
+
+        const gentleLeft = live
+          .filter(([key]) => !HEAVY.has(key.slice(2) as Category))
+          .reduce((n, [, ids]) => n + ids.length, 0)
+        const heavyLeft = live
+          .filter(([key]) => HEAVY.has(key.slice(2) as Category))
+          .reduce((n, [, ids]) => n + ids.length, 0)
+
+        const gentle =
+          HEAVY.has(prev) && gentleLeft > heavyLeft
+            ? usable.filter(([key]) => !HEAVY.has(key.slice(2) as Category))
+            : []
+        const tier = gentle.length > 0 ? gentle : usable
+
+        /*
+         * Sorted on how much of the AXIS is left across all three bands, not on the
+         * length of this one queue.
+         *
+         * That distinction is the difference between working and not. Splitting the
+         * pool into (band, axis) queues quietly broke largest-remaining-first, which
+         * is the property that makes no-consecutive-axis hold all the way to the last
+         * question: values has 18 questions but they sit in three queues of 4, 10 and
+         * 4, so per-queue it always looked small and never got drained. Standard pace
+         * finished with two values questions and nothing else to alternate with —
+         * days 168 and 169 were both values, and the tail heavy run hit nine.
+         *
+         * Gentle and bold both passed, which is what made it worth chasing rather
+         * than tuning around: one pace failing where two succeed is a bug in the
+         * mechanism, not a limit of the bank.
+         */
+        const axisLeft = new Map<string, number>()
+        for (const [key, ids] of live) {
+          const axis = key.slice(2)
+          axisLeft.set(axis, (axisLeft.get(axis) ?? 0) + ids.length)
+        }
+
+        tier.sort(
+          (a, b) =>
+            (axisLeft.get(b[0].slice(2)) ?? 0) - (axisLeft.get(a[0].slice(2)) ?? 0) ||
+            b[1].length - a[1].length ||
+            (a[0] < b[0] ? -1 : 1),
+        )
+
+        const [key, ids] = tier[0]
+        picked = ids.shift() as string
+        prev = key.slice(2) as Category
+        break
+      }
+    }
+
+    if (picked === null) break // unreachable: live was non-empty
+    out.push(picked)
+  }
+
+  return out
+}
 
 /**
  * The questions worth asking twice, in sequence order.

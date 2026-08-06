@@ -81,10 +81,37 @@ export interface ScaleFacet {
 
 export type Facet = ChoiceFacet | ScaleFacet
 
+/**
+ * How much a question costs to answer honestly.
+ *
+ * Category says what a question is *about*. This says what it *asks of you*, and the
+ * two are close to independent — which is the whole reason it exists.
+ *
+ * Before this, "how heavy is it" was inferred from the axis, so an axis could only
+ * move through the rotation as a block. That made the real complaint unfixable:
+ * people wanted sex and the future to show up in week one, and the only lever was to
+ * bring the entire intimacy axis forward — "How often would you actually like sex?"
+ * and "What's the hardest thing to ask me for in bed?" at the same time. One of those
+ * is a preference you could answer on a second date. The other is not.
+ *
+ *   1  Answerable on day two. A preference, a piece of state, a fact about the day.
+ *      Nothing that needs vulnerability and nothing that can start a fight.
+ *   2  Needs candour, or says something about the relationship rather than about you.
+ *      Fine inside a fortnight.
+ *   3  Exposing, or able to open a wound. Dealbreakers, what you have not said out
+ *      loud, the hardest thing to ask for. Earned, never early.
+ *
+ * Kept off the database deliberately. Postgres stores only what it needs to score —
+ * facet kinds and option ids — and intensity is an ordering concern, so putting it
+ * there would be a second copy to keep in step for no gain.
+ */
+export type Intensity = 1 | 2 | 3
+
 export interface Question {
   /** Stable forever. Never reused, never renumbered — answers reference it. */
   id: string
   category: Category
+  intensity: Intensity
   /** The headline, set in the display serif. The frame; facets are the answer. */
   prompt: string
   facets: Facet[]

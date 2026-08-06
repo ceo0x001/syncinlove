@@ -6,6 +6,7 @@ export const LIGHT: Question[] = [
     id: 'q-sleep',
     category: 'light',
     renewable: true,
+    intensity: 1,
     prompt: 'How did you actually sleep?',
     facets: [
       {
@@ -34,6 +35,7 @@ export const LIGHT: Question[] = [
     id: 'q-free-evening',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: 'A free evening lands in your lap. Nothing owed, nothing to pay for.',
     facets: [
       {
@@ -62,6 +64,7 @@ export const LIGHT: Question[] = [
     id: 'q-cancelled',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: 'Plans get cancelled an hour before.',
     facets: [
       {
@@ -90,6 +93,7 @@ export const LIGHT: Question[] = [
     id: 'q-laugh',
     category: 'light',
     renewable: true,
+    intensity: 1,
     prompt: 'The last thing that made you properly laugh.',
     facets: [
       {
@@ -118,6 +122,7 @@ export const LIGHT: Question[] = [
     id: 'q-miss-most',
     category: 'light',
     renewable: false,
+    intensity: 2,
     prompt: 'One of these vanishes tomorrow, permanently.',
     facets: [
       {
@@ -146,6 +151,7 @@ export const LIGHT: Question[] = [
     id: 'q-good-at',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: "Something you're quietly good at.",
     facets: [
       {
@@ -174,6 +180,7 @@ export const LIGHT: Question[] = [
     id: 'q-guilty',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: "A pleasure you'd defend in open court.",
     facets: [
       {
@@ -202,6 +209,7 @@ export const LIGHT: Question[] = [
     id: 'q-soundtrack',
     category: 'light',
     renewable: true,
+    intensity: 1,
     prompt: 'If today had a soundtrack.',
     facets: [
       {
@@ -230,6 +238,7 @@ export const LIGHT: Question[] = [
     id: 'q-time-capsule',
     category: 'light',
     renewable: true,
+    intensity: 2,
     prompt: "Something from this month you'd seal in a box for ten years.",
     facets: [
       {
@@ -258,6 +267,7 @@ export const LIGHT: Question[] = [
     id: 'q-swap-phones',
     category: 'light',
     renewable: false,
+    intensity: 2,
     prompt: 'We swap phones for twenty-four hours.',
     facets: [
       {
@@ -286,6 +296,7 @@ export const LIGHT: Question[] = [
     id: 'q-hungry-for',
     category: 'light',
     renewable: true,
+    intensity: 1,
     prompt: 'What are you actually hungry for?',
     facets: [
       {
@@ -314,6 +325,7 @@ export const LIGHT: Question[] = [
     id: 'q-outside',
     category: 'light',
     renewable: true,
+    intensity: 1,
     prompt: 'How much of today happened outside?',
     facets: [
       {
@@ -341,6 +353,7 @@ export const LIGHT: Question[] = [
     id: 'q-small-win',
     category: 'light',
     renewable: true,
+    intensity: 1,
     prompt: 'What went right today, however small?',
     facets: [
       {
@@ -369,6 +382,7 @@ export const LIGHT: Question[] = [
     id: 'q-phone-time',
     category: 'light',
     renewable: true,
+    intensity: 1,
     prompt: 'How much of today went to your phone?',
     facets: [
       {
@@ -396,6 +410,7 @@ export const LIGHT: Question[] = [
     id: 'q-music-now',
     category: 'light',
     renewable: true,
+    intensity: 1,
     prompt: 'What would you put on right now?',
     facets: [
       {
@@ -424,6 +439,7 @@ export const LIGHT: Question[] = [
     id: 'q-body-today',
     category: 'light',
     renewable: true,
+    intensity: 1,
     prompt: 'How is your body doing today?',
     facets: [
       {
@@ -452,6 +468,7 @@ export const LIGHT: Question[] = [
     id: 'q-comfort-food',
     category: 'light',
     renewable: true,
+    intensity: 1,
     prompt: 'The thing you eat when the day has been a lot.',
     facets: [
       {
@@ -480,6 +497,7 @@ export const LIGHT: Question[] = [
     id: 'q-last-photo',
     category: 'light',
     renewable: true,
+    intensity: 1,
     prompt: 'The last photo you took.',
     facets: [
       {
@@ -508,6 +526,7 @@ export const LIGHT: Question[] = [
     id: 'q-rewatch',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: 'The thing you would happily watch or read for the tenth time.',
     facets: [
       {
@@ -536,6 +555,7 @@ export const LIGHT: Question[] = [
     id: 'q-noise-level',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: 'The volume you want the room at.',
     facets: [
       {
@@ -564,6 +584,7 @@ export const LIGHT: Question[] = [
     id: 'q-treat',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: 'A small treat. Less than the price of lunch.',
     facets: [
       {
@@ -592,6 +613,7 @@ export const LIGHT: Question[] = [
     id: 'q-reply-speed',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: 'How fast you actually reply to messages.',
     facets: [
       {
@@ -620,6 +642,7 @@ export const LIGHT: Question[] = [
     id: 'q-morning-first',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: 'The first thing you actually do when you wake up.',
     facets: [
       {
@@ -648,6 +671,7 @@ export const LIGHT: Question[] = [
     id: 'q-drink-order',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: 'Your order, without thinking about it.',
     facets: [
       {
@@ -676,6 +700,7 @@ export const LIGHT: Question[] = [
     id: 'q-saturday-morning',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: 'A morning with nothing booked.',
     facets: [
       {
@@ -704,6 +729,7 @@ export const LIGHT: Question[] = [
     id: 'q-lateness',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: 'Being on time.',
     facets: [
       {
@@ -732,6 +758,7 @@ export const LIGHT: Question[] = [
     id: 'q-home-clothes',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: 'What you put on the moment you get in.',
     facets: [
       {
@@ -760,6 +787,7 @@ export const LIGHT: Question[] = [
     id: 'q-crowd-size',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: 'The right number of people for a good night.',
     facets: [
       {
@@ -788,6 +816,7 @@ export const LIGHT: Question[] = [
     id: 'q-temperature',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: 'Temperature.',
     facets: [
       {
@@ -816,6 +845,7 @@ export const LIGHT: Question[] = [
     id: 'q-animal',
     category: 'light',
     renewable: false,
+    intensity: 1,
     prompt: 'An animal in your life.',
     facets: [
       {
@@ -844,6 +874,7 @@ export const LIGHT: Question[] = [
     id: 'q-sunday-night',
     category: 'light',
     renewable: true,
+    intensity: 1,
     prompt: 'The last few hours before the week starts.',
     facets: [
       {

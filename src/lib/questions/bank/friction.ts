@@ -21,6 +21,7 @@ export const FRICTION: Question[] = [
     id: 'q-argument-mode',
     category: 'friction',
     renewable: false,
+    intensity: 2,
     prompt: 'In the middle of an argument, what do you actually do?',
     facets: [
       {
@@ -49,6 +50,7 @@ export const FRICTION: Question[] = [
     id: 'q-underneath',
     category: 'friction',
     renewable: true,
+    intensity: 3,
     prompt: 'When it goes wrong between us, what’s usually underneath it?',
     facets: [
       {
@@ -77,6 +79,7 @@ export const FRICTION: Question[] = [
     id: 'q-after-a-fight',
     category: 'friction',
     renewable: false,
+    intensity: 2,
     prompt: 'Straight after a fight, what do you need first?',
     facets: [
       {
@@ -105,6 +108,7 @@ export const FRICTION: Question[] = [
     id: 'q-who-folds',
     category: 'friction',
     renewable: false,
+    intensity: 2,
     prompt: 'Who tends to fold first?',
     facets: [
       {
@@ -133,6 +137,7 @@ export const FRICTION: Question[] = [
     id: 'q-short-with-you',
     category: 'friction',
     renewable: true,
+    intensity: 3,
     prompt: 'When I’m short with you, what do you assume?',
     facets: [
       {
@@ -161,6 +166,7 @@ export const FRICTION: Question[] = [
     id: 'q-unfair-share',
     category: 'friction',
     renewable: true,
+    intensity: 3,
     prompt: 'Something that isn’t split fairly right now.',
     facets: [
       {
@@ -189,6 +195,7 @@ export const FRICTION: Question[] = [
     id: 'q-ends-it',
     category: 'friction',
     renewable: false,
+    intensity: 2,
     prompt: 'What actually ends an argument for you?',
     facets: [
       {
@@ -217,6 +224,7 @@ export const FRICTION: Question[] = [
     id: 'q-wish-id-ask',
     category: 'friction',
     renewable: true,
+    intensity: 2,
     prompt: 'Something you wish I’d ask you about more.',
     facets: [
       {
@@ -245,6 +253,7 @@ export const FRICTION: Question[] = [
     id: 'q-made-peace',
     category: 'friction',
     renewable: false,
+    intensity: 2,
     prompt: 'Something small of mine you’ve stopped minding.',
     facets: [
       {
@@ -273,6 +282,7 @@ export const FRICTION: Question[] = [
     id: 'q-hardest-week',
     category: 'friction',
     renewable: true,
+    intensity: 2,
     prompt: 'The thing most likely to make you snap this week.',
     facets: [
       {
@@ -301,6 +311,7 @@ export const FRICTION: Question[] = [
     id: 'q-repeat-argument',
     category: 'friction',
     renewable: false,
+    intensity: 3,
     prompt: 'What argument do the two of you keep having?',
     facets: [
       {
@@ -329,6 +340,7 @@ export const FRICTION: Question[] = [
     id: 'q-tone',
     category: 'friction',
     renewable: false,
+    intensity: 1,
     prompt: 'What does tone do to you?',
     facets: [
       {
@@ -357,6 +369,7 @@ export const FRICTION: Question[] = [
     id: 'q-keep-score',
     category: 'friction',
     renewable: false,
+    intensity: 2,
     prompt: 'Do you keep score?',
     facets: [
       {
@@ -385,6 +398,7 @@ export const FRICTION: Question[] = [
     id: 'q-interrupted',
     category: 'friction',
     renewable: false,
+    intensity: 1,
     prompt: 'What happens when you get interrupted?',
     facets: [
       {
@@ -413,6 +427,7 @@ export const FRICTION: Question[] = [
     id: 'q-worst-timing',
     category: 'friction',
     renewable: false,
+    intensity: 1,
     prompt: 'The worst possible moment to raise something difficult with you.',
     facets: [
       {
@@ -441,6 +456,7 @@ export const FRICTION: Question[] = [
     id: 'q-small-annoyance',
     category: 'friction',
     renewable: true,
+    intensity: 1,
     prompt: 'The small thing that gets to you more than it deserves to.',
     facets: [
       {

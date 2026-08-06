@@ -6,6 +6,7 @@ export const DEEP: Question[] = [
     id: 'q-need-more-of',
     category: 'deep',
     renewable: true,
+    intensity: 2,
     prompt: 'What do you need more of from me right now?',
     facets: [
       {
@@ -34,6 +35,7 @@ export const DEEP: Question[] = [
     id: 'q-when-upset',
     category: 'deep',
     renewable: false,
+    intensity: 2,
     prompt: 'When you’re upset, what actually helps?',
     facets: [
       {
@@ -62,6 +64,7 @@ export const DEEP: Question[] = [
     id: 'q-proudest',
     category: 'deep',
     renewable: true,
+    intensity: 1,
     prompt: 'The thing you’re proudest of this year.',
     facets: [
       {
@@ -90,6 +93,7 @@ export const DEEP: Question[] = [
     id: 'q-worst-moment',
     category: 'deep',
     renewable: false,
+    intensity: 3,
     prompt: 'On your worst day, what do you need to hear?',
     facets: [
       {
@@ -120,6 +124,7 @@ export const DEEP: Question[] = [
     id: 'q-known',
     category: 'deep',
     renewable: true,
+    intensity: 2,
     prompt: 'How known do you feel these days?',
     facets: [
       {
@@ -148,6 +153,7 @@ export const DEEP: Question[] = [
     id: 'q-dont-know',
     category: 'deep',
     renewable: false,
+    intensity: 3,
     prompt: 'What do you suspect I don’t fully know about you?',
     facets: [
       {
@@ -176,6 +182,7 @@ export const DEEP: Question[] = [
     id: 'q-hard-to-ask',
     category: 'deep',
     renewable: false,
+    intensity: 3,
     prompt: 'The hardest thing to ask me for.',
     facets: [
       {
@@ -204,6 +211,7 @@ export const DEEP: Question[] = [
     id: 'q-where-we-are',
     category: 'deep',
     renewable: true,
+    intensity: 2,
     prompt: 'How do you feel about where we are?',
     facets: [
       {
@@ -232,6 +240,7 @@ export const DEEP: Question[] = [
     id: 'q-still-looking-for',
     category: 'deep',
     renewable: false,
+    intensity: 2,
     prompt: 'Something you needed early on that you still look for.',
     facets: [
       {
@@ -260,6 +269,7 @@ export const DEEP: Question[] = [
     id: 'q-ten-years',
     category: 'deep',
     renewable: false,
+    intensity: 3,
     prompt: 'Ten years from now, still doing this.',
     facets: [
       {
@@ -288,6 +298,7 @@ export const DEEP: Question[] = [
     id: 'q-carrying',
     category: 'deep',
     renewable: true,
+    intensity: 3,
     prompt: "What are you carrying that you haven't said out loud?",
     facets: [
       {
@@ -316,6 +327,7 @@ export const DEEP: Question[] = [
     id: 'q-needed-young',
     category: 'deep',
     renewable: false,
+    intensity: 2,
     prompt: 'What did you need as a kid that you still want now?',
     facets: [
       {
@@ -344,6 +356,7 @@ export const DEEP: Question[] = [
     id: 'q-lonely-when',
     category: 'deep',
     renewable: true,
+    intensity: 2,
     prompt: 'When does loneliness show up for you?',
     facets: [
       {
@@ -372,6 +385,7 @@ export const DEEP: Question[] = [
     id: 'q-brave',
     category: 'deep',
     renewable: true,
+    intensity: 1,
     prompt: "What's the bravest thing you've done lately?",
     facets: [
       {
@@ -400,6 +414,7 @@ export const DEEP: Question[] = [
     id: 'q-praise-lands',
     category: 'deep',
     renewable: false,
+    intensity: 1,
     prompt: 'The compliment that actually lands.',
     facets: [
       {
@@ -428,6 +443,7 @@ export const DEEP: Question[] = [
     id: 'q-when-quiet',
     category: 'deep',
     renewable: false,
+    intensity: 1,
     prompt: 'When you go quiet.',
     facets: [
       {
@@ -456,6 +472,7 @@ export const DEEP: Question[] = [
     id: 'q-changed-most',
     category: 'deep',
     renewable: false,
+    intensity: 2,
     prompt: 'The way you’ve changed most in the last few years.',
     facets: [
       {
@@ -484,6 +501,7 @@ export const DEEP: Question[] = [
     id: 'q-good-day-means',
     category: 'deep',
     renewable: true,
+    intensity: 1,
     prompt: 'What makes a day a good day for you.',
     facets: [
       {

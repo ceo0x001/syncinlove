@@ -22,6 +22,7 @@ export const VALUES: Question[] = [
     id: 'q-dealbreaker-real',
     category: 'values',
     renewable: false,
+    intensity: 3,
     prompt: 'What would actually end this?',
     facets: [
       {
@@ -50,6 +51,7 @@ export const VALUES: Question[] = [
     id: 'q-money-instinct',
     category: 'values',
     renewable: false,
+    intensity: 1,
     prompt: 'Money arrives unexpectedly. What’s your first instinct?',
     facets: [
       {
@@ -78,6 +80,7 @@ export const VALUES: Question[] = [
     id: 'q-friend-crossed',
     category: 'values',
     renewable: false,
+    intensity: 3,
     prompt: 'A close friend of yours disrespects me. What happens?',
     facets: [
       {
@@ -106,6 +109,7 @@ export const VALUES: Question[] = [
     id: 'q-apology-shape',
     category: 'values',
     renewable: false,
+    intensity: 1,
     prompt: 'What does a real apology have in it?',
     facets: [
       {
@@ -134,6 +138,7 @@ export const VALUES: Question[] = [
     id: 'q-two-years',
     category: 'values',
     renewable: true,
+    intensity: 2,
     prompt: 'Two years out — what has to be different?',
     facets: [
       {
@@ -162,6 +167,7 @@ export const VALUES: Question[] = [
     id: 'q-conflict-style',
     category: 'values',
     renewable: false,
+    intensity: 2,
     prompt: 'Mid-argument, what do you do?',
     facets: [
       {
@@ -190,6 +196,7 @@ export const VALUES: Question[] = [
     id: 'q-family-pull',
     category: 'values',
     renewable: false,
+    intensity: 2,
     prompt: 'How much say should family have in our decisions?',
     facets: [
       {
@@ -218,6 +225,7 @@ export const VALUES: Question[] = [
     id: 'q-privacy-line',
     category: 'values',
     renewable: false,
+    intensity: 2,
     prompt: 'What’s allowed to stay private, even from me?',
     facets: [
       {
@@ -246,6 +254,7 @@ export const VALUES: Question[] = [
     id: 'q-effort-fair',
     category: 'values',
     renewable: true,
+    intensity: 3,
     prompt: 'Right now, does the effort feel evenly split?',
     facets: [
       {
@@ -274,6 +283,7 @@ export const VALUES: Question[] = [
     id: 'q-lie-size',
     category: 'values',
     renewable: false,
+    intensity: 2,
     prompt: 'Which lie would you rather be told?',
     facets: [
       {
@@ -301,6 +311,7 @@ export const VALUES: Question[] = [
     id: 'q-ambition-cost',
     category: 'values',
     renewable: true,
+    intensity: 3,
     prompt: 'What are you willing to sacrifice for what you want?',
     facets: [
       {
@@ -329,6 +340,7 @@ export const VALUES: Question[] = [
     id: 'q-forgive-what',
     category: 'values',
     renewable: false,
+    intensity: 1,
     prompt: 'What do you find easiest to forgive?',
     facets: [
       {
@@ -357,6 +369,7 @@ export const VALUES: Question[] = [
     id: 'q-loyalty-line',
     category: 'values',
     renewable: false,
+    intensity: 2,
     prompt: 'What does loyalty actually mean to you?',
     facets: [
       {
@@ -385,6 +398,7 @@ export const VALUES: Question[] = [
     id: 'q-money-for',
     category: 'values',
     renewable: false,
+    intensity: 1,
     prompt: 'What is money actually for?',
     facets: [
       {
@@ -413,6 +427,7 @@ export const VALUES: Question[] = [
     id: 'q-truth-or-kind',
     category: 'values',
     renewable: false,
+    intensity: 2,
     prompt: 'Truth, or kindness?',
     facets: [
       {
@@ -441,6 +456,7 @@ export const VALUES: Question[] = [
     id: 'q-promise-broken',
     category: 'values',
     renewable: false,
+    intensity: 2,
     prompt: 'A promise gets broken. Small, but definite.',
     facets: [
       {
@@ -469,6 +485,7 @@ export const VALUES: Question[] = [
     id: 'q-obligation-reach',
     category: 'values',
     renewable: false,
+    intensity: 2,
     prompt: 'How far your obligation to other people reaches.',
     facets: [
       {
@@ -497,6 +514,7 @@ export const VALUES: Question[] = [
     id: 'q-told-in-confidence',
     category: 'values',
     renewable: false,
+    intensity: 2,
     prompt: 'Someone tells you something in confidence about a person you both love.',
     facets: [
       {

@@ -8,6 +8,7 @@ import {
 } from '@/lib/questions/bank'
 import { occasionToday } from '@/lib/occasions'
 import { MERGE_GAP, closeness, describePosition, gapSentence } from '@/lib/questions/scale-words'
+import { spiralFor, type Pace } from '@/lib/questions/bank'
 import { validatePayload } from '@/lib/questions/validate'
 import type { Question } from '@/lib/questions/types'
 import { NEUTRAL_MATCH, scoreDirection, scoreFacet, scoreSync } from './score'
@@ -46,6 +47,7 @@ function lcg(seed: number) {
 const FIXTURE: Question = {
   id: 'q-fixture',
   category: 'light',
+  intensity: 1,
   renewable: true,
   prompt: 'Fixture',
   facets: [
@@ -965,5 +967,130 @@ describe('scale wording', () => {
   it('lowercases the label mid-sentence without flattening the whole string', () => {
     // facet labels are capitalised as standalone captions under the track.
     expect(gapSentence(facet, 'Dada', 'You', 2, 4, 96)).toContain('Dada said been a while.')
+  })
+})
+
+/**
+ * The spiral.
+ *
+ * Not serving anybody yet — questionForDay still walks SEQUENCE. These pin the
+ * generator before it is wired up, because switching over reorders from day 13 and the
+ * content judgment is the risky half, not the plumbing.
+ *
+ * What users asked for was "shuffle the categories so we don't wait a month for the
+ * interesting ones". What they get is every axis inside the first fortnight with the
+ * escalation intact, which is the same want without the day-two ambush.
+ */
+describe('the spiral', () => {
+  const PACES: Pace[] = ['gentle', 'standard', 'bold']
+  const AXES = [
+    'light',
+    'logistics',
+    'future',
+    'deep',
+    'desire',
+    'friction',
+    'values',
+    'intimacy',
+  ] as const
+  const byId = new Map(QUESTIONS.map((q) => [q.id, q]))
+  const at = (seq: string[], day: number) => byId.get(seq[day])!
+
+  it.each(PACES)('serves every question exactly once at %s pace', (pace) => {
+    const seq = spiralFor(pace)
+    expect(seq).toHaveLength(QUESTIONS.length)
+    expect(new Set(seq).size).toBe(QUESTIONS.length)
+    // Not just the right count — the right ids. A permutation, not a coincidence.
+    expect([...seq].sort()).toEqual(QUESTIONS.map((q) => q.id).sort())
+  })
+
+  /*
+    The assertion this whole change exists for.
+
+    Under the ramp, desire waited until day 30 and the heavier intimacy until day 56.
+    That was the complaint, in one number.
+  */
+  it.each(PACES)('shows all eight axes inside the first fortnight at %s pace', (pace) => {
+    const seq = spiralFor(pace)
+    const seen = new Set(seq.slice(0, 14).map((id) => byId.get(id)!.category))
+    for (const axis of AXES) {
+      expect(seen.has(axis), `${axis} is missing from the first fortnight at ${pace}`).toBe(true)
+    }
+  })
+
+  it.each(PACES)('opens on the same question it always has, at %s pace', (pace) => {
+    // Nobody on their first day sees a change, whatever else moves.
+    expect(spiralFor(pace)[0]).toBe('q-sleep')
+  })
+
+  /*
+    Coverage early must not mean intensity early. Bringing the intimacy AXIS forward
+    while leaving "what's the hardest thing to ask me for in bed" where it is was the
+    entire reason for adding Intensity, so this is the assertion that says it worked.
+  */
+  it.each(PACES)('asks nothing exposing in the first fortnight at %s pace', (pace) => {
+    const seq = spiralFor(pace)
+    for (let day = 0; day < 14; day++) {
+      const q = at(seq, day)
+      expect(q.intensity, `day ${day} at ${pace} is ${q.id} (intensity ${q.intensity})`).toBeLessThan(3)
+    }
+  })
+
+  it('keeps the whole opening fortnight at the shallowest intensity', () => {
+    // The opener is shared by every pace and is band 1 throughout, by hand.
+    for (const pace of PACES) {
+      for (let day = 0; day < 13; day++) {
+        expect(at(spiralFor(pace), day).intensity, `day ${day}`).toBe(1)
+      }
+    }
+  })
+
+  it.each(PACES)('never runs the same axis twice in a row at %s pace', (pace) => {
+    const seq = spiralFor(pace)
+    for (let day = 1; day < seq.length; day++) {
+      expect(
+        at(seq, day).category,
+        `days ${day - 1} and ${day} at ${pace} share an axis`,
+      ).not.toBe(at(seq, day - 1).category)
+    }
+  })
+
+  it.each(PACES)('never stacks more than a week of heavy axes at %s pace', (pace) => {
+    const HEAVY = new Set(['deep', 'friction', 'desire', 'values', 'intimacy'])
+    const seq = spiralFor(pace)
+    let run = 0
+    let longest = 0
+    for (const id of seq) {
+      run = HEAVY.has(byId.get(id)!.category) ? run + 1 : 0
+      longest = Math.max(longest, run)
+    }
+    expect(longest, `longest heavy run at ${pace}`).toBeLessThanOrEqual(6)
+  })
+
+  /*
+    Pace has to mean something, or it is a setting that lies to the person who set it.
+    Measured over the first six weeks, where a couple would actually notice.
+  */
+  it('escalates faster the bolder the pace', () => {
+    const depth = (pace: Pace) => {
+      const seq = spiralFor(pace)
+      return seq.slice(0, 42).reduce((sum, id) => sum + byId.get(id)!.intensity, 0)
+    }
+    expect(depth('gentle')).toBeLessThan(depth('standard'))
+    expect(depth('standard')).toBeLessThan(depth('bold'))
+  })
+
+  it('is a pure function of the pace — same input, same order, every time', () => {
+    // Two server instances that disagree about day 200 serve one couple two different
+    // questions depending on which one answered. No clock, no randomness, no shuffle.
+    for (const pace of PACES) {
+      expect(spiralFor(pace)).toEqual(spiralFor(pace))
+    }
+  })
+
+  it('gives the three paces genuinely different orders', () => {
+    const [g, s, b] = PACES.map((p) => spiralFor(p).join(','))
+    expect(g).not.toBe(s)
+    expect(s).not.toBe(b)
   })
 })

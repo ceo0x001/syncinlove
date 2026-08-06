@@ -6,6 +6,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-help-this-week',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'What would actually help you this week?',
     facets: [
       {
@@ -34,6 +35,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-week-full',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'How full is your week?',
     facets: [
       {
@@ -62,6 +64,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-chore',
     category: 'logistics',
     renewable: false,
+    intensity: 1,
     prompt: "The task you'd pay real money to never do again.",
     facets: [
       {
@@ -90,6 +93,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-energy-clock',
     category: 'logistics',
     renewable: false,
+    intensity: 1,
     prompt: 'When are you actually at your best?',
     facets: [
       {
@@ -118,6 +122,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-money-temp',
     category: 'logistics',
     renewable: true,
+    intensity: 2,
     prompt: 'How is money sitting with you right now?',
     facets: [
       {
@@ -146,6 +151,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-notice',
     category: 'logistics',
     renewable: false,
+    intensity: 1,
     prompt: 'How much warning do you need before a plan?',
     facets: [
       {
@@ -174,6 +180,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-food-decision',
     category: 'logistics',
     renewable: false,
+    intensity: 1,
     prompt: "Next time we're deciding what to eat.",
     facets: [
       {
@@ -202,6 +209,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-inbox',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'The state of your unread messages.',
     facets: [
       {
@@ -230,6 +238,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-off-your-plate',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'One thing gets lifted off your plate this week.',
     facets: [
       {
@@ -258,6 +267,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-rest',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'Where are you on rest?',
     facets: [
       {
@@ -286,6 +296,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-tomorrow-shape',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'What does tomorrow actually look like?',
     facets: [
       {
@@ -314,6 +325,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-errand',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'What have you been putting off?',
     facets: [
       {
@@ -342,6 +354,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-plan-notice',
     category: 'logistics',
     renewable: false,
+    intensity: 1,
     prompt: 'How much notice do you need before plans?',
     facets: [
       {
@@ -370,6 +383,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-budget-week',
     category: 'logistics',
     renewable: true,
+    intensity: 2,
     prompt: 'How tight is money this week?',
     facets: [
       {
@@ -398,6 +412,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-home-mess',
     category: 'logistics',
     renewable: false,
+    intensity: 1,
     prompt: 'How much mess can you actually live with?',
     facets: [
       {
@@ -426,6 +441,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-who-handles',
     category: 'logistics',
     renewable: false,
+    intensity: 2,
     prompt: 'Who deals with the thing neither of you wants to?',
     facets: [
       {
@@ -454,6 +470,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-week-dread',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'The thing on this week you’re least looking forward to.',
     facets: [
       {
@@ -482,6 +499,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-meals-week',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'How eating is actually going this week.',
     facets: [
       {
@@ -510,6 +528,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-admin-pile',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'The admin you keep not doing.',
     facets: [
       {
@@ -538,6 +557,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-body-upkeep',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'Looking after your body this week — moving, eating, sleeping, appointments.',
     facets: [
       {
@@ -566,6 +586,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-one-thing-easier',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'One thing that would make this week measurably easier.',
     facets: [
       {
@@ -594,6 +615,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-day-off-real',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'Your next actual day off.',
     facets: [
       {
@@ -622,6 +644,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-spend-slip',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'Where money quietly goes.',
     facets: [
       {
@@ -650,6 +673,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-getting-there',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'Getting to the places you have to be this week.',
     facets: [
       {
@@ -678,6 +702,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-fridge',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'The state of the fridge right now.',
     facets: [
       {
@@ -706,6 +731,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-people-owed',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'Someone you owe a call or a reply.',
     facets: [
       {
@@ -734,6 +760,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-how-tired',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'How tired you actually are.',
     facets: [
       {
@@ -762,6 +789,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-worst-day',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'The worst day of this week, before it happens.',
     facets: [
       {
@@ -790,6 +818,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-help-offered',
     category: 'logistics',
     renewable: false,
+    intensity: 2,
     prompt: 'Someone offers to help before you ask.',
     facets: [
       {
@@ -818,6 +847,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-subscriptions',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'The thing you pay for monthly and barely use.',
     facets: [
       {
@@ -846,6 +876,7 @@ export const LOGISTICS: Question[] = [
     id: 'q-day-spoken-for',
     category: 'logistics',
     renewable: true,
+    intensity: 1,
     prompt: 'How much of today is already spoken for.',
     facets: [
       {

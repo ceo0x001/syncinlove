@@ -23,6 +23,7 @@ export const DESIRE: Question[] = [
     id: 'q-feel-wanted',
     category: 'desire',
     renewable: true,
+    intensity: 2,
     prompt: 'What makes you feel wanted?',
     facets: [
       {
@@ -51,6 +52,7 @@ export const DESIRE: Question[] = [
     id: 'q-touch-timing',
     category: 'desire',
     renewable: true,
+    intensity: 2,
     prompt: 'When do you most want to be touched?',
     facets: [
       {
@@ -79,6 +81,7 @@ export const DESIRE: Question[] = [
     id: 'q-gesture',
     category: 'desire',
     renewable: false,
+    intensity: 1,
     prompt: 'The small gesture that undoes you.',
     facets: [
       {
@@ -107,6 +110,7 @@ export const DESIRE: Question[] = [
     id: 'q-flirt',
     category: 'desire',
     renewable: false,
+    intensity: 1,
     prompt: 'How do you like being flirted with?',
     facets: [
       {
@@ -135,6 +139,7 @@ export const DESIRE: Question[] = [
     id: 'q-short-of',
     category: 'desire',
     renewable: true,
+    intensity: 2,
     prompt: 'What kind of closeness are you short of right now?',
     facets: [
       {
@@ -163,6 +168,7 @@ export const DESIRE: Question[] = [
     id: 'q-in-public',
     category: 'desire',
     renewable: false,
+    intensity: 1,
     prompt: 'Affection in front of other people.',
     facets: [
       {
@@ -191,6 +197,7 @@ export const DESIRE: Question[] = [
     id: 'q-last-desired',
     category: 'desire',
     renewable: true,
+    intensity: 3,
     prompt: 'The last time you felt properly wanted.',
     facets: [
       {
@@ -219,6 +226,7 @@ export const DESIRE: Question[] = [
     id: 'q-chosen',
     category: 'desire',
     renewable: false,
+    intensity: 2,
     prompt: 'What makes you feel chosen, rather than just kept?',
     facets: [
       {
@@ -247,6 +255,7 @@ export const DESIRE: Question[] = [
     id: 'q-initiating',
     category: 'desire',
     renewable: false,
+    intensity: 2,
     prompt: 'Making the first move.',
     facets: [
       {
@@ -275,6 +284,7 @@ export const DESIRE: Question[] = [
     id: 'q-attention-form',
     category: 'desire',
     renewable: true,
+    intensity: 2,
     prompt: 'If I had an hour with nothing else to do but you.',
     facets: [
       {
@@ -303,6 +313,7 @@ export const DESIRE: Question[] = [
     id: 'q-desired-how',
     category: 'desire',
     renewable: false,
+    intensity: 2,
     prompt: 'How do you most want to be wanted?',
     facets: [
       {
@@ -331,6 +342,7 @@ export const DESIRE: Question[] = [
     id: 'q-pursue',
     category: 'desire',
     renewable: false,
+    intensity: 2,
     prompt: 'Pursuing, or being pursued?',
     facets: [
       {
@@ -359,6 +371,7 @@ export const DESIRE: Question[] = [
     id: 'q-desire-drop',
     category: 'desire',
     renewable: false,
+    intensity: 3,
     prompt: 'What kills it fastest?',
     facets: [
       {
@@ -387,6 +400,7 @@ export const DESIRE: Question[] = [
     id: 'q-first-noticed',
     category: 'desire',
     renewable: false,
+    intensity: 1,
     prompt: 'What you noticed first about them.',
     facets: [
       {
@@ -415,6 +429,7 @@ export const DESIRE: Question[] = [
     id: 'q-wanted-pace',
     category: 'desire',
     renewable: true,
+    intensity: 1,
     prompt: 'Being wanted slowly, or being wanted urgently.',
     facets: [
       {

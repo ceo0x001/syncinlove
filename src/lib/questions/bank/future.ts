@@ -18,6 +18,7 @@ export const FUTURE: Question[] = [
     id: 'q-where-based',
     category: 'future',
     renewable: false,
+    intensity: 2,
     prompt: 'Five years out — where are you?',
     facets: [
       {
@@ -46,6 +47,7 @@ export const FUTURE: Question[] = [
     id: 'q-whos-around',
     category: 'future',
     renewable: false,
+    intensity: 2,
     prompt: 'A few years from now, picture the room. Who’s in it?',
     facets: [
       {
@@ -74,6 +76,7 @@ export const FUTURE: Question[] = [
     id: 'q-saving-for',
     category: 'future',
     renewable: true,
+    intensity: 1,
     prompt: 'What are you really saving for?',
     facets: [
       {
@@ -102,6 +105,7 @@ export const FUTURE: Question[] = [
     id: 'q-work-three-years',
     category: 'future',
     renewable: false,
+    intensity: 2,
     prompt: 'Work, three years from now.',
     facets: [
       {
@@ -130,6 +134,7 @@ export const FUTURE: Question[] = [
     id: 'q-whose-career',
     category: 'future',
     renewable: false,
+    intensity: 3,
     prompt: 'If one of us had to bend for the other’s work, who bends?',
     facets: [
       {
@@ -158,6 +163,7 @@ export const FUTURE: Question[] = [
     id: 'q-pace-of-change',
     category: 'future',
     renewable: true,
+    intensity: 1,
     prompt: 'How much do you want to change in the next year?',
     facets: [
       {
@@ -186,6 +192,7 @@ export const FUTURE: Question[] = [
     id: 'q-regret',
     category: 'future',
     renewable: false,
+    intensity: 3,
     prompt: 'What would you regret not having done?',
     facets: [
       {
@@ -214,6 +221,7 @@ export const FUTURE: Question[] = [
     id: 'q-crisis',
     category: 'future',
     renewable: false,
+    intensity: 3,
     prompt: 'If something big went wrong tomorrow — money, health, family.',
     facets: [
       {
@@ -242,6 +250,7 @@ export const FUTURE: Question[] = [
     id: 'q-afraid-changes',
     category: 'future',
     renewable: false,
+    intensity: 3,
     prompt: 'What are you most afraid will change?',
     facets: [
       {
@@ -270,6 +279,7 @@ export const FUTURE: Question[] = [
     id: 'q-next-milestone',
     category: 'future',
     renewable: true,
+    intensity: 1,
     prompt: 'The next thing you want to happen for us.',
     facets: [
       {
@@ -298,6 +308,7 @@ export const FUTURE: Question[] = [
     id: 'q-one-year-home',
     category: 'future',
     renewable: false,
+    intensity: 2,
     prompt: 'Where is home a year from now?',
     facets: [
       {
@@ -326,6 +337,7 @@ export const FUTURE: Question[] = [
     id: 'q-children-honest',
     category: 'future',
     renewable: false,
+    intensity: 3,
     prompt: 'Children — where are you, honestly?',
     facets: [
       {
@@ -354,6 +366,7 @@ export const FUTURE: Question[] = [
     id: 'q-stop-working',
     category: 'future',
     renewable: false,
+    intensity: 2,
     prompt: 'What does stopping work look like for you?',
     facets: [
       {
@@ -382,6 +395,7 @@ export const FUTURE: Question[] = [
     id: 'q-future-scares',
     category: 'future',
     renewable: false,
+    intensity: 3,
     prompt: 'What about the future actually scares you?',
     facets: [
       {
@@ -410,6 +424,7 @@ export const FUTURE: Question[] = [
     id: 'q-next-trip',
     category: 'future',
     renewable: true,
+    intensity: 1,
     prompt: 'Somewhere you want to go that isn’t a fantasy.',
     facets: [
       {
@@ -438,6 +453,7 @@ export const FUTURE: Question[] = [
     id: 'q-learn-next',
     category: 'future',
     renewable: false,
+    intensity: 1,
     prompt: 'Something you still fully intend to learn.',
     facets: [
       {
@@ -466,6 +482,7 @@ export const FUTURE: Question[] = [
     id: 'q-milestone-order',
     category: 'future',
     renewable: false,
+    intensity: 2,
     prompt: 'Only one of these happens in the next two years.',
     facets: [
       {
@@ -494,6 +511,7 @@ export const FUTURE: Question[] = [
     id: 'q-money-stops',
     category: 'future',
     renewable: true,
+    intensity: 2,
     prompt: 'The money stops tomorrow — a job goes, or work dries up.',
     facets: [
       {
@@ -522,6 +540,7 @@ export const FUTURE: Question[] = [
     id: 'q-work-shape',
     category: 'future',
     renewable: false,
+    intensity: 2,
     prompt: 'The shape of work you’re actually heading toward.',
     facets: [
       {
@@ -550,6 +569,7 @@ export const FUTURE: Question[] = [
     id: 'q-next-big-spend',
     category: 'future',
     renewable: true,
+    intensity: 1,
     prompt: 'The next big thing real money goes on.',
     facets: [
       {
@@ -578,6 +598,7 @@ export const FUTURE: Question[] = [
     id: 'q-tradition',
     category: 'future',
     renewable: false,
+    intensity: 1,
     prompt: 'A tradition you want the two of you to keep, or start.',
     facets: [
       {
@@ -606,6 +627,7 @@ export const FUTURE: Question[] = [
     id: 'q-year-different',
     category: 'future',
     renewable: true,
+    intensity: 1,
     prompt: 'A year from now, one thing is genuinely different.',
     facets: [
       {
@@ -634,6 +656,7 @@ export const FUTURE: Question[] = [
     id: 'q-space-of-own',
     category: 'future',
     renewable: false,
+    intensity: 1,
     prompt: 'A space that is only yours — a room, a corner, a shed.',
     facets: [
       {
@@ -662,6 +685,7 @@ export const FUTURE: Question[] = [
     id: 'q-home-kind',
     category: 'future',
     renewable: false,
+    intensity: 1,
     prompt: 'The kind of place you want to end up living in.',
     facets: [
       {
@@ -690,6 +714,7 @@ export const FUTURE: Question[] = [
     id: 'q-made-something',
     category: 'future',
     renewable: false,
+    intensity: 1,
     prompt: 'Something you want to have made or built.',
     facets: [
       {

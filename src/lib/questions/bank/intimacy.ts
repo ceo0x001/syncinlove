@@ -29,6 +29,7 @@ export const INTIMACY: Question[] = [
     id: 'q-how-often',
     category: 'intimacy',
     renewable: true,
+    intensity: 2,
     prompt: 'How often would you actually like sex?',
     facets: [
       {
@@ -57,6 +58,7 @@ export const INTIMACY: Question[] = [
     id: 'q-initiate',
     category: 'intimacy',
     renewable: true,
+    intensity: 2,
     prompt: 'Who starts it, and who’d you like to?',
     facets: [
       {
@@ -85,6 +87,7 @@ export const INTIMACY: Question[] = [
     id: 'q-intensity',
     category: 'intimacy',
     renewable: true,
+    intensity: 2,
     prompt: 'How rough do you like it?',
     facets: [
       {
@@ -113,6 +116,7 @@ export const INTIMACY: Question[] = [
     id: 'q-in-charge',
     category: 'intimacy',
     renewable: true,
+    intensity: 2,
     prompt: 'Who’s in charge, when it’s at its best?',
     facets: [
       {
@@ -141,6 +145,7 @@ export const INTIMACY: Question[] = [
     id: 'q-fantasy-hold',
     category: 'intimacy',
     renewable: true,
+    intensity: 3,
     prompt: 'What have you thought about but never said out loud?',
     facets: [
       {
@@ -169,6 +174,7 @@ export const INTIMACY: Question[] = [
     id: 'q-what-i-miss',
     category: 'intimacy',
     renewable: true,
+    intensity: 3,
     prompt: 'What do you miss most from when we started?',
     facets: [
       {
@@ -197,6 +203,7 @@ export const INTIMACY: Question[] = [
     id: 'q-hardest-ask',
     category: 'intimacy',
     renewable: true,
+    intensity: 3,
     prompt: 'What’s the hardest thing to ask me for in bed?',
     facets: [
       {
@@ -225,6 +232,7 @@ export const INTIMACY: Question[] = [
     id: 'q-turned-off',
     category: 'intimacy',
     renewable: true,
+    intensity: 3,
     prompt: 'What kills it fastest for you?',
     facets: [
       {
@@ -253,6 +261,7 @@ export const INTIMACY: Question[] = [
     id: 'q-body-seen',
     category: 'intimacy',
     renewable: true,
+    intensity: 2,
     prompt: 'How do you want to be looked at?',
     facets: [
       {
@@ -281,6 +290,7 @@ export const INTIMACY: Question[] = [
     id: 'q-after',
     category: 'intimacy',
     renewable: true,
+    intensity: 2,
     prompt: 'Afterwards — what do you actually want?',
     facets: [
       {
@@ -309,6 +319,7 @@ export const INTIMACY: Question[] = [
     id: 'q-out-loud',
     category: 'intimacy',
     renewable: true,
+    intensity: 1,
     prompt: 'How much talking do you want during?',
     facets: [
       {
@@ -337,6 +348,7 @@ export const INTIMACY: Question[] = [
     id: 'q-anticipation',
     category: 'intimacy',
     renewable: true,
+    intensity: 1,
     prompt: 'Would you rather be surprised or made to wait?',
     facets: [
       {
@@ -365,6 +377,7 @@ export const INTIMACY: Question[] = [
     id: 'q-say-out-loud',
     category: 'intimacy',
     renewable: false,
+    intensity: 3,
     prompt: 'What would you say out loud if you knew it landed well?',
     facets: [
       {
@@ -393,6 +406,7 @@ export const INTIMACY: Question[] = [
     id: 'q-pace-intensity',
     category: 'intimacy',
     renewable: false,
+    intensity: 1,
     prompt: 'Slow, or not slow?',
     facets: [
       {
@@ -421,6 +435,7 @@ export const INTIMACY: Question[] = [
     id: 'q-afterwards',
     category: 'intimacy',
     renewable: false,
+    intensity: 1,
     prompt: 'Afterwards.',
     facets: [
       {
@@ -449,6 +464,7 @@ export const INTIMACY: Question[] = [
     id: 'q-mood-turns',
     category: 'intimacy',
     renewable: true,
+    intensity: 1,
     prompt: 'What most reliably moves you from not-in-the-mood to in-the-mood.',
     facets: [
       {
