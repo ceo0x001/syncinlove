@@ -220,4 +220,77 @@ select assert(
   'and nobody can trigger a send run through the API'
 );
 
+-- ---------------------------------------------------------------------------
+-- How long a push should live
+--
+-- Every notification used to go out with a uniform twelve-hour TTL. Two hours too long
+-- for a question that stops being answerable at 06:00, and days too short for a sealed
+-- letter that has no deadline at all.
+-- ---------------------------------------------------------------------------
+
+\set tzpair 'e7e70000-0000-0000-0000-00000000e7e7'
+
+insert into public.pairs (id, time_zone, day_zero, status)
+values (:'tzpair', 'Pacific/Kiritimati', current_date - 5, 'active');   -- UTC+14
+
+select assert(
+  public.seconds_until_day_closes(:'tzpair') between 5 * 60 and 24 * 60 * 60,
+  'a day-scoped push expires within a day, never longer'
+);
+
+-- The point of the function: the answer is the PAIR's 06:00, not the server's. Two
+-- pairings 25 hours apart cannot both have the same number of seconds left unless the
+-- timezone is being ignored.
+insert into public.pairs (id, time_zone, day_zero, status)
+values ('e7e70000-0000-0000-0000-0000000000e8', 'Pacific/Midway', current_date - 5, 'active');
+
+select assert(
+  public.seconds_until_day_closes(:'tzpair')
+    <> public.seconds_until_day_closes('e7e70000-0000-0000-0000-0000000000e8'),
+  'and it is counted on the couple''s clock, not the server''s'
+);
+
+/*
+  Never zero, never negative.
+
+  A nudge computed at 05:58 has two minutes left, and web-push treats a zero TTL as
+  "deliver now or discard" — which for a device that is merely asleep means discard.
+  Floored at five minutes: slightly stale beats silently dropped.
+*/
+select assert(
+  public.seconds_until_day_closes(:'tzpair') >= 5 * 60,
+  'and never so short that the push is discarded before it can be delivered'
+);
+
+-- An unknown pairing gets the old default rather than an error. send_nudges is a cron
+-- job; one deleted pairing mid-run must not stop the other nineteen nudges.
+select assert(
+  public.seconds_until_day_closes('00000000-0000-0000-0000-000000000000') = 12 * 60 * 60,
+  'an unknown pairing falls back rather than raising inside a cron run'
+);
+
+/*
+  The weld this depends on.
+
+  The relay derives the kind from the notification TAG — the tag exists so a second
+  "they answered" replaces the first in the tray, and per-kind is exactly that
+  granularity. Nothing else enforces that they stay the same thing, so it is asserted
+  structurally rather than assumed: if somebody makes the tag per-day, every push
+  silently reverts to the twelve-hour default and no test would otherwise notice.
+*/
+select assert(
+  pg_get_functiondef('public.send_nudges()'::regprocedure) like '%''tag'', r.kind%',
+  'the notification tag is the nudge kind, which is what the relay reads it as'
+);
+
+select assert(
+  pg_get_functiondef('public.send_nudges()'::regprocedure) like '%seconds_until_day_closes%',
+  'and day-scoped nudges take their TTL from the pair''s clock'
+);
+
+select assert(
+  pg_get_functiondef('public.send_nudges()'::regprocedure) like '%''urgency'', v_urgency%',
+  'and urgency travels with them, so a deadline nudge is not batched behind a letter'
+);
+
 rollback;

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
+import { deliveryFor } from '@/lib/push/delivery'
 
 /**
  * The push relay.
@@ -30,6 +31,16 @@ interface RelayRequest {
     keys?: { p256dh?: string; auth?: string }
   }
   payload?: { title?: string; body?: string; url?: string; tag?: string }
+  /**
+   * Delivery hints, both optional.
+   *
+   * Optional because the relay and send_nudges deploy independently — an older database
+   * posts neither, and deliveryFor falls back to a sensible per-kind default rather than
+   * to the one-size number this replaced. Typed as unknown because they arrive over HTTP
+   * from a caller this process does not get to trust; deliveryFor validates and clamps.
+   */
+  ttl?: unknown
+  urgency?: unknown
 }
 
 function configured(): boolean {
@@ -125,10 +136,21 @@ export async function POST(request: Request) {
     tag: String(body.payload?.tag ?? 'sync').slice(0, 40),
   })
 
+  /*
+   * Per-kind, not one number for everything.
+   *
+   * The tag IS the nudge kind — see send_nudges, where it is set from r.kind so a second
+   * "they answered" replaces the first in the tray. The database also sends the exact
+   * remaining seconds for day-scoped kinds, because the deadline is 06:00 in the PAIR's
+   * timezone and this process has no way to know that: it holds no database credentials,
+   * which is the property that makes a relay safe to run at all.
+   */
+  const delivery = deliveryFor(body.payload?.tag, body.ttl, body.urgency)
+
   try {
     await webpush.sendNotification({ endpoint, keys: { p256dh, auth } }, payload, {
-      TTL: 60 * 60 * 12,
-      urgency: 'normal',
+      TTL: delivery.ttl,
+      urgency: delivery.urgency,
     })
     return Response.json({ ok: true })
   } catch (error) {
