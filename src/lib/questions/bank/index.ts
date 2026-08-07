@@ -29,132 +29,18 @@ export const QUESTIONS: Question[] = [
 ]
 
 /**
- * The order every pair walks, starting at day 0.
+ * The rotation lives in the database now.
  *
- * Deliberately not shuffled per pair. The ramp is the point, and it is the most
- * load-bearing content decision in the app:
+ * There used to be a hand-written 60-day RAMP here, a generated tail, a SEQUENCE that
+ * concatenated them and a questionForDay that indexed into it. All of it is gone: since
+ * 0022 the question a pair sees on a day is a row in pair_days, written the first time
+ * that day is asked for and never moved afterwards.
  *
- *   Week 1      light and practical only. Earn the right to ask anything else.
- *   Week 2      the first real feelings, the first look forward.
- *   Week 3-4    friction enters — gently, and never as an accusation.
- *   Week 5      desire enters, once the ritual has been kept for a month.
- *   Week 6-9    the heavier end of every axis, always with lightness between.
- *
- * Two rules held throughout: no two consecutive days from the same axis, and
- * nothing heavy on consecutive days. A pair whose second question is "what do
- * you suspect I don't fully know about you" does not come back for a third.
- */
-const RAMP: readonly string[] = [
-  // ---- Week 1. Easy, warm, quick. -----------------------------------------
-  'q-sleep',
-  'q-help-this-week',
-  'q-free-evening',
-  'q-rest',
-  'q-laugh',
-  'q-week-full',
-  'q-need-more-of',
-
-  // ---- Week 2. Practical texture, first feelings, first glance forward. ---
-  'q-cancelled',
-  'q-energy-clock',
-  'q-when-upset',
-  'q-good-at',
-  'q-next-milestone',
-  'q-known',
-  'q-soundtrack',
-
-  // ---- Week 3. Friction arrives, at its mildest. --------------------------
-  'q-food-decision',
-  'q-underneath',
-  'q-proudest',
-  'q-inbox',
-  'q-argument-mode',
-  'q-guilty',
-  'q-pace-of-change',
-
-  // ---- Week 4. Deeper, and the first hard practical questions. -----------
-  'q-money-temp',
-  'q-after-a-fight',
-  'q-miss-most',
-  'q-hard-to-ask',
-  'q-time-capsule',
-  'q-saving-for',
-  'q-short-with-you',
-
-  // ---- Week 5. A month in. Desire enters, softly. ------------------------
-  'q-swap-phones',
-  'q-feel-wanted',
-  'q-off-your-plate',
-  'q-where-we-are',
-  'q-touch-timing',
-  'q-notice',
-  'q-work-three-years',
-
-  // ---- Week 6. -----------------------------------------------------------
-  'q-chore',
-  'q-short-of',
-  'q-wish-id-ask',
-  'q-whos-around',
-  'q-gesture',
-  'q-hardest-week',
-  'q-still-looking-for',
-
-  // ---- Week 7. -----------------------------------------------------------
-  'q-last-desired',
-  'q-unfair-share',
-  'q-where-based',
-  'q-in-public',
-  'q-ends-it',
-  'q-attention-form',
-  'q-crisis',
-
-  // ---- Week 8. -----------------------------------------------------------
-  'q-flirt',
-  'q-who-folds',
-  'q-regret',
-  'q-chosen',
-  'q-made-peace',
-  'q-worst-moment',
-  'q-whose-career',
-
-  // ---- Week 9. The heaviest of the original nine weeks. -------------------
-  'q-initiating',
-  'q-dont-know',
-  'q-afraid-changes',
-  'q-ten-years',
-
-] as const
-
-/**
- * Everything after the ramp, ordered by rule rather than by hand.
- *
- * The ramp above stays hand-written. Which question lands on day three is the most
- * load-bearing content decision in this app and is not something to hand to an
- * algorithm.
- *
- * Past that it inverts. SEQUENCE has to contain every question exactly once, so a
- * bank grown toward two years of unique days would mean hand-placing seven hundred
- * ids while checking two invariants across all of them by eye. Worse, it makes every
- * new question expensive: drop one in and the whole array needs re-reading. So the
- * tail is generated, the rules live in code, and adding a question becomes "append
- * it to its axis file".
- *
- * DETERMINISM IS NOT OPTIONAL, and it is now enforced somewhere else.
- *
- * This used to say questionForDay must be a pure function of the day index, because
- * two server instances disagreeing about day 200 would serve a couple different
- * questions depending on which one answered. That reasoning still holds. What changed
- * is where the guarantee lives: since 0022 the database records which question a pair
- * was asked on which day, so the answer is looked up rather than recomputed, and two
- * instances cannot disagree about a row.
- *
- * SEQUENCE and questionForDay below are no longer the app's path. They are kept
- * because `questions.sequence_position` and the SQL question_for_day(int) still exist
- * and the tests below still describe what that rotation guarantees. Removing them is
- * its own commit — doing it here would mean two things to unpick if the flip needs
- * reverting.
- *
- * The live ordering is spiralFor(pace), further down.
+ * What survives is the part that was always the point — the rules for ORDERING the
+ * bank, further down as spiralFor. `npm run seed:questions` renders one ordering per
+ * pace into question_order, and question_for_pair_day walks it. So this file is still
+ * the author of the order; it just no longer pretends to be able to answer "what is
+ * today's question" on its own, because that answer depends on a pair's whole history.
  */
 
 /** Axes that ask something costly. Never two in a row if it can be helped. */
@@ -198,9 +84,10 @@ function interleave(pool: readonly Question[], after: Category | null): string[]
     const notPrev = remaining.filter(([cat]) => cat !== prev)
     /*
      * Only the previous axis is left. Emitting it breaks the rule, but dropping the
-     * questions would lose them from SEQUENCE and fail the permutation check — a
-     * visibly imperfect sequence beats a silently incomplete bank. The test
-     * asserting no consecutive axes is what makes this loud if it ever happens.
+     * questions would lose them from the ordering entirely — a pace that omits a
+     * question is a pace whose couples never see it, and nothing downstream would
+     * notice. A visibly imperfect ordering beats a silently incomplete bank, and the
+     * no-consecutive-axis test is what makes it loud if this is ever reached.
      */
     const usable = notPrev.length > 0 ? notPrev : remaining
 
@@ -239,11 +126,9 @@ function interleave(pool: readonly Question[], after: Category | null): string[]
      * future. That claim is now trustworthy in a way it was not the first three times
      * it was made, because the rationing no longer spends them early.
      *
-     * The trade, measured over the generated tail: the longest heavy run falls from
-     * 12 to 4, while heavy-follows-heavy rises from 10% to 19%. That is the right
-     * way round. A couple experiences the run, not the average — four heavy days
-     * with a break is a hard week, twelve is a reason to stop opening the app, and
-     * scattered single adjacencies are barely noticeable.
+     * A couple experiences the run, not the average, which is why the tests assert the
+     * longest run and deliberately do not assert the adjacency percentage — rationing
+     * makes that number worse while making the experience better.
      */
     const gentleLeft = remaining
       .filter(([cat]) => !HEAVY.has(cat))
@@ -269,24 +154,6 @@ function interleave(pool: readonly Question[], after: Category | null): string[]
 
   return out
 }
-
-const RAMP_SET = new Set<string>(RAMP)
-const RAMP_LAST = QUESTIONS.find((q) => q.id === RAMP[RAMP.length - 1])?.category ?? null
-
-/**
- * The order every pair walks, ramp first.
- *
- * Still a permutation of QUESTIONS, which the tests check. The tail is every
- * question the ramp does not name, so a new question joins it automatically and none
- * can be silently dropped.
- */
-export const SEQUENCE: string[] = [
-  ...RAMP,
-  ...interleave(
-    QUESTIONS.filter((q) => !RAMP_SET.has(q.id)),
-    RAMP_LAST,
-  ),
-]
 
 const BY_ID = new Map(QUESTIONS.map((q) => [q.id, q]))
 
@@ -618,43 +485,8 @@ export function spiralFor(pace: Pace): string[] {
   return out
 }
 
-/**
- * The questions worth asking twice, in sequence order.
- *
- * Trait questions are excluded: both partners saw each other's answer at the
- * reveal, so asking again scores full marks from memory. Recycling them would
- * inflate every score across the second pass for reasons unconnected to the
- * couple — and once accuracy pays tender, inflate the economy with them.
- */
-const RENEWABLE = SEQUENCE.filter((id) => BY_ID.get(id)?.renewable)
-
 export function questionById(id: string): Question | undefined {
   return BY_ID.get(id)
-}
-
-/**
- * The old rotation. NOT what the app serves any more.
- *
- * Superseded by question_for_pair_day in the database, which respects the pair's pace
- * and never re-asks a question they have already had. Kept in step with the SQL
- * question_for_day(int) that still exists, and still covered by the tests describing
- * what the ramp guaranteed.
- *
- * If you are looking for what a couple sees today, it is a row in pair_days.
- */
-export function questionForDay(dayIndex: number): Question {
-  const day = Math.max(0, Math.floor(dayIndex))
-
-  const id =
-    day < SEQUENCE.length
-      ? SEQUENCE[day]
-      : RENEWABLE[(day - SEQUENCE.length) % RENEWABLE.length]
-
-  const question = BY_ID.get(id)
-  if (!question) {
-    throw new Error(`SEQUENCE references unknown question id "${id}"`)
-  }
-  return question
 }
 
 /** Renders `{them}` in facet copy. Falls back to something neutral pre-pairing. */

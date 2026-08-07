@@ -16,7 +16,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { QUESTIONS, SEQUENCE, spiralFor, type Pace } from '../src/lib/questions/bank'
+import { QUESTIONS, spiralFor, type Pace } from '../src/lib/questions/bank'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const outPath = resolve(here, '../supabase/seed/questions.sql')
@@ -26,18 +26,29 @@ function sqlString(value: string): string {
   return `'${value.replaceAll("'", "''")}'`
 }
 
-const position = new Map(SEQUENCE.map((id, index) => [id, index]))
+/*
+ * Validation before anything is written.
+ *
+ * Fail here rather than emitting a file the database will accept and a couple will
+ * suffer. A pace missing a question is a pace whose couples never see it, and nothing
+ * in the schema catches that — question_order's unique constraints only catch a
+ * duplicate within one regeneration.
+ */
+const PACES: Pace[] = ['gentle', 'standard', 'bold']
 
-// Fail loudly here rather than shipping a bank the database will reject.
-for (const id of SEQUENCE) {
-  if (!QUESTIONS.some((q) => q.id === id)) {
-    throw new Error(`SEQUENCE references unknown question "${id}"`)
+for (const pace of PACES) {
+  const seq = spiralFor(pace)
+  if (seq.length !== QUESTIONS.length || new Set(seq).size !== QUESTIONS.length) {
+    throw new Error(`${pace} ordering is not a permutation of the bank`)
+  }
+  for (const id of seq) {
+    if (!QUESTIONS.some((q) => q.id === id)) {
+      throw new Error(`${pace} ordering references unknown question "${id}"`)
+    }
   }
 }
+
 for (const q of QUESTIONS) {
-  if (!position.has(q.id)) {
-    throw new Error(`Question "${q.id}" is not in SEQUENCE, so no pair would ever see it`)
-  }
   if (!q.facets.some((f) => f.kind === 'scale')) {
     throw new Error(`Question "${q.id}" has no scale facet — its score could only ever be 0/50/100`)
   }
@@ -60,7 +71,7 @@ const rows = QUESTIONS.map((q) => {
 
   return (
     `  (${sqlString(q.id)}, ${sqlString(q.category)}, ${sqlString(q.prompt)}, ` +
-    `${sqlString(JSON.stringify(facets))}::jsonb, ${position.get(q.id)}, ${q.renewable})`
+    `${sqlString(JSON.stringify(facets))}::jsonb, ${q.renewable})`
   )
 })
 
@@ -72,20 +83,11 @@ const rows = QUESTIONS.map((q) => {
  * diffed: the whole table is deleted and rewritten inside the transaction, which is
  * the only way a reorder cannot leave a stale row behind.
  */
-const PACES: Pace[] = ['gentle', 'standard', 'bold']
-
 const orderRows = PACES.flatMap((pace) =>
   spiralFor(pace).map(
     (id, index) => `  (${sqlString(pace)}, ${index}, ${sqlString(id)})`,
   ),
 )
-
-for (const pace of PACES) {
-  const seq = spiralFor(pace)
-  if (new Set(seq).size !== QUESTIONS.length) {
-    throw new Error(`${pace} ordering is not a permutation of the bank`)
-  }
-}
 
 const sql = `-- ============================================================================
 -- Sync — question bank
@@ -101,17 +103,12 @@ const sql = `-- ================================================================
 
 begin;
 
--- Cleared first so reordering the rotation can't transiently collide with the
--- unique index on sequence_position.
-update public.questions set sequence_position = null;
-
-insert into public.questions (id, category, prompt, facets, sequence_position, renewable) values
+insert into public.questions (id, category, prompt, facets, renewable) values
 ${rows.join(',\n')}
 on conflict (id) do update set
   category          = excluded.category,
   prompt            = excluded.prompt,
   facets            = excluded.facets,
-  sequence_position = excluded.sequence_position,
   renewable         = excluded.renewable;
 
 -- ----------------------------------------------------------------------------
@@ -132,11 +129,7 @@ ${orderRows.join(',\n')};
 
 commit;
 
--- Sanity check. Expect ${QUESTIONS.length}, then ${QUESTIONS.length} per pace.
-select count(*) as questions_in_rotation
-from public.questions
-where sequence_position is not null;
-
+-- Sanity check. Expect ${QUESTIONS.length} per pace.
 select pace, count(*) as ordered, min(position) as first, max(position) as last
 from public.question_order
 group by pace

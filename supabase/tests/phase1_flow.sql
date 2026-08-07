@@ -134,18 +134,21 @@ select assert(
   'yesterday closes by 07:00'
 );
 
-select assert(
-  (public.question_for_day(0)).id = 'q-sleep',
-  'day 0 is the gentle opener, not a deep question'
-);
+/*
+  Which question a day is has moved, so the assertions moved with it.
 
--- The first pass walks the ramp in order. What happens past the end of it —
--- renewable questions only — is asserted in phase3_tender.sql.
+  question_for_day(int) and questions.sequence_position are gone as of 0025. A day's
+  question is now a row in pair_days, chosen from the pairing's pace ordering and never
+  re-chosen. Everything that used to be asserted here — day 0 being the gentle opener,
+  the first pass following the ordering, renewable-only past the end — is asserted in
+  phase10_pace.sql against the function that actually decides it.
+
+  Left as a pointer rather than deleted silently: an assertion that vanishes without
+  explanation reads like coverage somebody dropped.
+*/
 select assert(
-  (public.question_for_day(1)).id = (
-    select id from public.questions where sequence_position = 1
-  ),
-  'the first pass follows the sequence in order'
+  (select count(*) from public.question_order where position = 0) = 3,
+  'every pace still has a day 0 — the opener assertions live in phase10_pace.sql'
 );
 
 -- ---------------------------------------------------------------------------

@@ -98,28 +98,20 @@ select assert(
 -- ---------------------------------------------------------------------------
 -- Renewable rotation. Past the first pass, only renewable questions.
 -- ---------------------------------------------------------------------------
--- No hardcoded total. The bank grows in batches toward two years of unique days,
--- and a magic number here fails on every batch and gets bumped without being
--- read. What matters is that every seeded question has a place in the sequence.
+-- No hardcoded total. The bank grows in batches toward two years of unique days, and a
+-- magic number here fails on every batch and gets bumped without being read. What
+-- matters is that every seeded question has a place in every pace's ordering.
+--
+-- Rewritten for 0025, which dropped question_for_day(int) and sequence_position. The
+-- recycling assertions this block used to carry — nothing non-renewable ever comes
+-- back, the wrap lands on a renewable question — are now in phase10_pace.sql, walked
+-- against a real pairing past the end of its bank rather than against a global index.
 select assert(
-  (select count(*) from public.questions where sequence_position is null) = 0,
-  'every seeded question has a place in the sequence'
-);
-select assert((public.question_for_day(0)).id = 'q-sleep', 'day 0 is the gentle opener');
-select assert(
-  (select count(*) from generate_series(
-     (select count(*)::int from public.questions where sequence_position is not null),
-     (select count(*)::int from public.questions where sequence_position is not null) + 200
-   ) d
-   where not (public.question_for_day(d)).renewable) = 0,
-  'nothing non-renewable is ever recycled'
-);
-select assert(
-  (public.question_for_day(
-    (select count(*)::int from public.questions where sequence_position is not null)
-  )).id <> (public.question_for_day(0)).id
-  or (public.question_for_day(0)).renewable,
-  'the wrap lands on a renewable question'
+  (select count(*) from public.questions q
+    where not exists (
+      select 1 from public.question_order o where o.question_id = q.id
+    )) = 0,
+  'every seeded question has a place in the rotation'
 );
 
 -- ---------------------------------------------------------------------------

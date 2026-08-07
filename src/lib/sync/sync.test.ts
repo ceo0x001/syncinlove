@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   QUESTIONS,
-  SEQUENCE,
-  questionForDay,
   questionById,
+  spiralFor,
   withPartnerName,
+  type Pace,
 } from '@/lib/questions/bank'
 import { occasionToday } from '@/lib/occasions'
 import { MERGE_GAP, closeness, describePosition, gapSentence } from '@/lib/questions/scale-words'
-import { spiralFor, type Pace } from '@/lib/questions/bank'
 import { validatePayload } from '@/lib/questions/validate'
 import type { Question } from '@/lib/questions/types'
 import { NEUTRAL_MATCH, scoreDirection, scoreFacet, scoreSync } from './score'
@@ -280,160 +279,6 @@ describe('agreement with the database scoring function', () => {
   })
 })
 
-describe('question bank integrity', () => {
-  it('has a sequence that covers every question exactly once', () => {
-    // No hardcoded total. The bank is meant to grow in batches toward two years
-    // of unique days, and a magic number here just fails on every batch and gets
-    // bumped without being read. The invariant that matters is the mapping being
-    // one-to-one, which is what actually breaks under copy-paste.
-    expect(SEQUENCE).toHaveLength(QUESTIONS.length)
-    expect(new Set(SEQUENCE).size).toBe(SEQUENCE.length)
-    expect([...SEQUENCE].sort()).toEqual(QUESTIONS.map((q) => q.id).sort())
-  })
-
-  it('has unique question ids', () => {
-    expect(new Set(QUESTIONS.map((q) => q.id)).size).toBe(QUESTIONS.length)
-  })
-
-  it('gives every question at least one scale facet', () => {
-    // Without one, a day can only score 0/50/100 per direction and the number
-    // reads as random rather than earned.
-    for (const q of QUESTIONS) {
-      expect(q.facets.some((f) => f.kind === 'scale'), `${q.id} has no scale facet`).toBe(true)
-    }
-  })
-
-  it('gives every question two or three facets with unique ids', () => {
-    for (const q of QUESTIONS) {
-      expect(q.facets.length, q.id).toBeGreaterThanOrEqual(2)
-      expect(q.facets.length, q.id).toBeLessThanOrEqual(3)
-      expect(new Set(q.facets.map((f) => f.id)).size, q.id).toBe(q.facets.length)
-    }
-  })
-
-  it('gives every choice facet 3-4 options with unique ids', () => {
-    for (const q of QUESTIONS) {
-      for (const facet of q.facets) {
-        if (facet.kind !== 'choice') continue
-        expect(facet.options.length, `${q.id}/${facet.id}`).toBeGreaterThanOrEqual(3)
-        expect(facet.options.length, `${q.id}/${facet.id}`).toBeLessThanOrEqual(4)
-        expect(new Set(facet.options.map((o) => o.id)).size).toBe(facet.options.length)
-      }
-    }
-  })
-
-  it('templates the partner name in every askAbout string', () => {
-    for (const q of QUESTIONS) {
-      for (const facet of q.facets) {
-        expect(facet.askAbout, `${q.id}/${facet.id}`).toContain('{them}')
-      }
-    }
-  })
-
-  it('keeps the first week light — nothing heavy before day 7', () => {
-    // A pair whose second question is "what do you suspect I don't know about
-    // you" does not come back for a third.
-    for (let day = 0; day < 6; day++) {
-      expect(['light', 'logistics'], `day ${day + 1}`).toContain(
-        questionForDay(day).category,
-      )
-    }
-  })
-
-  // Friction is an accusation risk and desire presumes a lot. Both have to be
-  // earned by the ritual actually being kept.
-  it('holds friction back past week two and desire past a month', () => {
-    for (let day = 0; day < 14; day++) {
-      expect(questionForDay(day).category, `day ${day + 1}`).not.toBe('friction')
-    }
-    for (let day = 0; day < 28; day++) {
-      expect(questionForDay(day).category, `day ${day + 1}`).not.toBe('desire')
-    }
-  })
-
-  it('never runs the same axis on consecutive days', () => {
-    for (let day = 1; day < SEQUENCE.length; day++) {
-      expect(
-        questionForDay(day).category,
-        `days ${day} and ${day + 1} share an axis`,
-      ).not.toBe(questionForDay(day - 1).category)
-    }
-  })
-
-  it('opens on the same question for every pair', () => {
-    expect(questionForDay(0).id).toBe(SEQUENCE[0])
-  })
-
-  it('is a pure function of the day index', () => {
-    expect(questionForDay(5).id).toBe(questionForDay(5).id)
-    expect(questionForDay(41).id).toBe(questionForDay(41).id)
-  })
-
-  it('walks the sequence in order for the whole first pass', () => {
-    for (let day = 0; day < SEQUENCE.length; day++) {
-      expect(questionForDay(day).id, `day ${day}`).toBe(SEQUENCE[day])
-    }
-  })
-
-  // Recycling a trait question pays full marks for remembering an answer both
-  // partners already saw at the reveal, which inflates scores — and, once tender
-  // pays on accuracy, the economy — from the second pass onward.
-  it('only ever recycles renewable questions', () => {
-    for (let day = SEQUENCE.length; day < SEQUENCE.length + 120; day++) {
-      const q = questionForDay(day)
-      expect(q.renewable, `day ${day} served non-renewable ${q.id}`).toBe(true)
-    }
-  })
-
-  /*
-    The metric that actually describes the experience.
-
-    "No two consecutive days from the same axis" was the only spacing rule asserted, and
-    it passed happily while the last twelve days of the first pass were an unbroken run
-    of heavy axes — deep, friction, desire, values, intimacy, over and over, alternating
-    correctly and relentless all the same.
-
-    Worse, it survived three rounds of adding gentle questions. At 116, 146 and 170 the
-    final twelve days were identical, because interleave spent its gentle questions early
-    rather than rationing them. Nothing failed, so nothing said so.
-
-    The percentage of heavy adjacencies is deliberately NOT asserted here. Rationing the
-    preference roughly doubled it while cutting the longest run from twelve to five, and
-    that is the right trade — a couple experiences the run, not the average. A test on the
-    average would have called the fix a regression.
-  */
-  it('never stacks more than a week of heavy axes in a row', () => {
-    const HEAVY = new Set(['deep', 'friction', 'desire', 'values', 'intimacy'])
-    let run = 0
-    let longest = 0
-    let endsAt = 0
-
-    for (let day = 0; day < SEQUENCE.length; day++) {
-      run = HEAVY.has(questionForDay(day).category) ? run + 1 : 0
-      if (run > longest) {
-        longest = run
-        endsAt = day
-      }
-    }
-
-    expect(longest, `longest heavy run ends on day ${endsAt}`).toBeLessThanOrEqual(6)
-  })
-
-  it('has enough renewable questions that repeats are not back-to-back', () => {
-    const renewables = QUESTIONS.filter((q) => q.renewable)
-    expect(renewables.length).toBeGreaterThanOrEqual(14)
-  })
-
-  it('survives a negative day index rather than crashing', () => {
-    expect(() => questionForDay(-1)).not.toThrow()
-  })
-
-  it('resolves every sequence id to a real question', () => {
-    for (const id of SEQUENCE) {
-      expect(questionById(id), id).toBeDefined()
-    }
-  })
-})
 
 describe('withPartnerName', () => {
   it('substitutes the name', () => {
@@ -777,35 +622,57 @@ describe('tender', () => {
    The question bank
 
    Invariants rather than content. The bank is meant to grow toward two years of
-   unique days, in batches, and each of these is a mistake that batch growth
-   invites: a copy-pasted id that silently overwrites an entry, a question written
-   and never scheduled, a sequence entry pointing at nothing.
+   unique days, in batches, and each of these is a mistake that batch growth invites: a
+   copy-pasted id that silently overwrites an entry, a question with no facets, a choice
+   with duplicate option ids.
 
-   questionForDay throws on the last of those, which would take down every screen
-   for every couple at once — so it is worth catching here rather than in
-   production on whichever morning that day index came up.
+   Cheap to assert and expensive to discover later — a question the seed rejects is a
+   failed deploy, but a question with two options sharing an id scores one of them
+   forever and nothing complains.
    --------------------------------------------------------------------------- */
 
+/*
+   Two assertions were deleted here rather than migrated, and the reason is not that they
+   became inconvenient.
+
+     "asks nothing heavy in the first week"
+     "holds the explicit axis back until the ritual has been kept a while"
+
+   Both encoded a product decision that has since been reversed on purpose. Real users
+   said they were waiting too long for the subjects they came for, and the opener now
+   puts all eight axes — desire and sex included — inside the first fortnight, at
+   intensity 1, with bold reaching desire on day 1. Keeping those assertions would mean
+   asserting the opposite of what the product now promises.
+
+   What survived the reversal is the part that was actually protective, and it is
+   asserted in `the spiral` instead: nothing at intensity 3 before day 14, at any pace.
+   The old rule protected people by withholding a SUBJECT; the new one withholds a
+   DEPTH, which is the thing that was ever really at stake. "How do you like being
+   flirted with" on day 1 is fine. "What have you thought about but never said out loud"
+   on day 1 is not.
+
+   A third — "resolves every day of a two-year run" — went with questionForDay. The
+   equivalent now lives in phase10_pace.sql, which walks a pair past the end of the bank
+   and asserts only renewable questions come back.
+*/
+
+/**
+ * The bank itself, independent of any ordering.
+ *
+ * This used to also assert what the hand-written ramp guaranteed — nothing heavy before
+ * day 7, friction held past week two, the sequence walked in order, only renewables
+ * recycled. Those went with the ramp. They were green the whole time the spiral was
+ * live, describing a rotation nobody walked, which is worse than having no tests there:
+ * they read as coverage of the path that actually serves people.
+ *
+ * The ordering rules they were really about now live in `the spiral` below, asserted
+ * per pace, and the ones about a pair's history live in phase10_pace.sql because the
+ * database is where that decision is made.
+ */
 describe('the question bank', () => {
   it('has no duplicate ids', () => {
     const ids = QUESTIONS.map((q) => q.id)
     expect(new Set(ids).size).toBe(ids.length)
-  })
-
-  it('schedules every question it defines', () => {
-    const unscheduled = QUESTIONS.filter((q) => !SEQUENCE.includes(q.id))
-    expect(unscheduled.map((q) => q.id)).toEqual([])
-  })
-
-  it('never schedules a question that does not exist', () => {
-    const known = new Set(QUESTIONS.map((q) => q.id))
-    expect(SEQUENCE.filter((id) => !known.has(id))).toEqual([])
-  })
-
-  it('resolves every day of a two-year run without throwing', () => {
-    for (let day = 0; day < 730; day++) {
-      expect(questionForDay(day).id).toBeTruthy()
-    }
   })
 
   it('gives every question at least one facet to answer', () => {
@@ -822,28 +689,44 @@ describe('the question bank', () => {
     }
   })
 
-  it('holds the explicit axis back until the ritual has been kept a while', () => {
-    // Attesting to being 18 at signup is not agreeing to be asked tonight, so
-    // this waits on eight weeks of a kept ritual.
-    //
-    // Eight, not the twelve originally intended: the explicit axis has to
-    // alternate with something, the no-consecutive-axis rule is not negotiable,
-    // and values is currently the only other axis late in the sequence. Pushing
-    // it later needs more light and logistics questions to space it with — which
-    // is part of growing this bank out, not a reason to block one axis behind the
-    // other and call it a ramp.
-    const firstExplicit = SEQUENCE.findIndex(
-      (id) => QUESTIONS.find((q) => q.id === id)?.category === 'intimacy',
-    )
-    expect(firstExplicit).toBeGreaterThan(56)
+  it('gives every question a scale facet, so a day cannot only score 0, 50 or 100', () => {
+    for (const question of QUESTIONS) {
+      expect(
+        question.facets.some((f) => f.kind === 'scale'),
+        `${question.id} has no scale facet`,
+      ).toBe(true)
+    }
   })
 
-  it('asks nothing heavy in the first week', () => {
-    const heavy = new Set(['friction', 'desire', 'intimacy', 'values'])
-    const firstWeek = SEQUENCE.slice(0, 7).map(
-      (id) => QUESTIONS.find((q) => q.id === id)?.category,
-    )
-    expect(firstWeek.filter((c) => c && heavy.has(c))).toEqual([])
+  it('templates the partner name into every askAbout', () => {
+    for (const question of QUESTIONS) {
+      for (const facet of question.facets) {
+        expect(facet.askAbout, `${question.id}/${facet.id}`).toContain('{them}')
+      }
+    }
+  })
+
+  it('gives every question two or three facets with unique ids', () => {
+    for (const q of QUESTIONS) {
+      expect(q.facets.length, q.id).toBeGreaterThanOrEqual(2)
+      expect(q.facets.length, q.id).toBeLessThanOrEqual(3)
+      expect(new Set(q.facets.map((f) => f.id)).size, q.id).toBe(q.facets.length)
+    }
+  })
+
+  it('gives every choice facet 3-4 options with unique ids', () => {
+    for (const q of QUESTIONS) {
+      for (const facet of q.facets) {
+        if (facet.kind !== 'choice') continue
+        expect(facet.options.length, `${q.id}/${facet.id}`).toBeGreaterThanOrEqual(3)
+        expect(facet.options.length, `${q.id}/${facet.id}`).toBeLessThanOrEqual(4)
+        expect(new Set(facet.options.map((o) => o.id)).size).toBe(facet.options.length)
+      }
+    }
+  })
+
+  it('keeps enough renewable questions that the cycle is not two deep', () => {
+    expect(QUESTIONS.filter((q) => q.renewable).length).toBeGreaterThanOrEqual(14)
   })
 })
 
@@ -973,9 +856,9 @@ describe('scale wording', () => {
 /**
  * The spiral.
  *
- * Not serving anybody yet — questionForDay still walks SEQUENCE. These pin the
- * generator before it is wired up, because switching over reorders from day 13 and the
- * content judgment is the risky half, not the plumbing.
+ * The live ordering. `npm run seed:questions` renders one of these per pace into
+ * question_order, and question_for_pair_day walks it — so what these assert is what
+ * couples actually get, and getting it wrong here reorders everybody's next question.
  *
  * What users asked for was "shuffle the categories so we don't wait a month for the
  * interesting ones". What they get is every axis inside the first fortnight with the
