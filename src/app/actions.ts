@@ -529,6 +529,28 @@ export async function saveMenuItem(
 }
 
 /** Unlist or relist. Available even mid-purchase — consent is withdrawable. */
+/**
+ * Take something off your menu for good.
+ *
+ * Asks already made survive. purchases.item_id became nullable in 0027 rather than
+ * cascading, because a purchase snapshots its own title and price — and because an ask
+ * at status 'requested' is holding tender, which would have been stranded if deleting
+ * the item deleted the row that releases it.
+ */
+export async function deleteMenuItem(itemId: string): Promise<ActionResult> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('delete_menu_item', { p_item_id: itemId })
+  if (error) return { error: error.message }
+
+  // Zero rows means it was not yours, or it is already gone. Either way the list in
+  // front of them is stale, so say so rather than silently doing nothing.
+  if (data === 0) return { error: 'That is no longer on your menu.' }
+
+  revalidatePath('/menu')
+  revalidatePath('/')
+  return { ok: true }
+}
+
 export async function setMenuItemActive(
   itemId: string,
   active: boolean,

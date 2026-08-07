@@ -117,11 +117,25 @@ select assert(
   'a negative day is not open'
 );
 
--- The grace window: at 02:00 pair-local tomorrow, yesterday is still open.
+/*
+  The grace window, dated on the PAIR's calendar.
+
+  These read `current_date + 1` and then interpreted the result as a Lagos wall time —
+  a session date used as a pairing date. West of Lagos those are the same for most of
+  the day and differ for the rest, so under a UTC session late in the evening the
+  timestamp lands a day out and "yesterday closes by 07:00" fails against a function
+  that is behaving perfectly.
+
+  Fourth fixture in this repo dated off the wrong clock, after phase9's freeze
+  allowance, phase6's evening hour and phase6's letter dates. The tell is always the
+  same: `current_date` next to a pair timezone. When they appear together, one of them
+  is wrong.
+*/
+-- At 02:00 pair-local tomorrow, yesterday is still open.
 select assert(
   public.pair_day_is_open(
     public.current_pair_id(), 0,
-    ((current_date + 1)::timestamp + interval '2 hours') at time zone 'Africa/Lagos'
+    (((now() at time zone 'Africa/Lagos')::date + 1)::timestamp + interval '2 hours') at time zone 'Africa/Lagos'
   ),
   'yesterday stays open at 02:00 — the midnight cliff is covered'
 );
@@ -129,7 +143,7 @@ select assert(
 select assert(
   not public.pair_day_is_open(
     public.current_pair_id(), 0,
-    ((current_date + 1)::timestamp + interval '7 hours') at time zone 'Africa/Lagos'
+    (((now() at time zone 'Africa/Lagos')::date + 1)::timestamp + interval '7 hours') at time zone 'Africa/Lagos'
   ),
   'yesterday closes by 07:00'
 );

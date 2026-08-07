@@ -375,6 +375,113 @@ end $$;
 
 reset role;
 
+
+-- ---------------------------------------------------------------------------
+-- Removing a menu item
+--
+-- "Unlist" used to leave the row greyed out forever. Deleting it was unsafe for one
+-- specific reason: purchases.item_id cascaded, so tidying your menu would have deleted
+-- your partner's outstanding ask along with the tender held against it. The money had
+-- already left their balance and the row that releases it would have been gone.
+--
+-- 0027 makes the link `set null`. These assert the consequence, not the constraint.
+-- ---------------------------------------------------------------------------
+
+set sync.uid = :'alice';
+set role authenticated;
+
+select public.upsert_menu_item(null, 'A cup of tea', 5000);
+
+select assert(
+  public.delete_menu_item((select id from public.menu_items where title = 'A cup of tea')) = 1,
+  'an item nobody has asked for is simply gone'
+);
+
+select assert(
+  (select count(*) from public.menu_items where title = 'A cup of tea') = 0,
+  'and it is not merely hidden'
+);
+
+/*
+  The case that made a delete dangerous.
+
+  An ask at status 'requested' is holding tender. Bob asks for something of Alice's,
+  Alice removes it, and every part of that ask has to survive: the row, its snapshotted
+  title and price, its status, and the money.
+*/
+select public.upsert_menu_item(null, 'Wash the car', 20000);
+
+set sync.uid = :'bob';
+select public.buy_menu_item((select id from public.menu_items where title = 'Wash the car'));
+
+select public.tender_balance(:'bob') as bob_held \gset
+
+set sync.uid = :'alice';
+select assert(
+  public.delete_menu_item((select id from public.menu_items where title = 'Wash the car')) = 1,
+  'an item with an ask outstanding can still be removed'
+);
+
+select assert(
+  (select count(*) from public.purchases where title = 'Wash the car') = 1,
+  'and the ask survives it — the old cascade would have deleted this row'
+);
+
+select assert(
+  (select item_id from public.purchases where title = 'Wash the car') is null,
+  'pointing at nothing rather than at a row that no longer exists'
+);
+
+select assert(
+  (select price from public.purchases where title = 'Wash the car') = 20000,
+  'at the price it was agreed, which the purchase snapshots for itself'
+);
+
+select assert(
+  public.tender_balance(:'bob')::text = :'bob_held',
+  'and the tender held against it has not moved'
+);
+
+-- The whole point of the money surviving: the ask still resolves. Confirmed by the
+-- buyer, since only they can say it was actually done.
+set sync.uid = :'bob';
+select public.mark_purchase_fulfilled(
+  (select id from public.purchases where title = 'Wash the car')
+);
+
+select assert(
+  (select status from public.purchases where title = 'Wash the car') = 'fulfilled',
+  'a removed item''s ask can still be honoured'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- Whose menu it is
+-- ---------------------------------------------------------------------------
+
+set sync.uid = :'alice';
+select public.upsert_menu_item(null, 'Not yours to remove', 15000);
+
+set sync.uid = :'bob';
+select assert(
+  public.delete_menu_item(
+    (select id from public.menu_items where title = 'Not yours to remove')
+  ) = 0,
+  'you cannot remove something from your partner''s menu'
+);
+
+select assert(
+  (select count(*) from public.menu_items where title = 'Not yours to remove') = 1,
+  'and it is still there afterwards'
+);
+
+reset role;
+
+select assert(
+  has_function_privilege('anon', 'public.delete_menu_item(uuid)', 'execute') is false,
+  'and removal is not reachable anonymously'
+);
+
 \echo ''
 \echo 'ALL PHASE 3 ASSERTIONS PASSED'
 

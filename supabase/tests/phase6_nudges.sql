@@ -43,8 +43,26 @@ insert into public.profiles (id, first_name) values
   (:'ann', 'Ann'),
   (:'ben', 'Ben');
 
+/*
+  day_zero on the PAIR's clock, not the session's.
+
+  This was `current_date`, which is evaluated in the SESSION's timezone while everything
+  it is then compared against — pair_day_index, nudge_queue's `today` — is evaluated in
+  the pairing's. For a machine running west of UTC the two disagree between local
+  midnight and UTC midnight, and day_zero lands a day in the pair's future: the answer
+  this suite inserts at day 0 is then not today's, no partner_answered nudge is queued,
+  and thirteen assertions fail at 00:36 that passed at 08:00.
+
+  Third fixture in this repo dated off the wrong clock, after phase9's freeze allowance
+  and phase6's own evening hour. The pattern each time: the code is right, the test asks
+  the question in a different timezone, and it only shows up in the hour where they part.
+
+  Every dated fixture below is on the pairing's clock for the same reason — the letter
+  unlock dates too, since days_away is `unlock_on - (now() at time zone pair.time_zone)`
+  and a session date nine days out is ten on the pair's calendar for one hour a day.
+*/
 insert into public.pairs (id, time_zone, day_zero, status)
-values (:'pair', 'UTC', current_date, 'active');
+values (:'pair', 'UTC', (now() at time zone 'UTC')::date, 'active');
 
 insert into public.pair_members (pair_id, user_id, role) values
   (:'pair', :'ann', 'inviter'),
@@ -233,8 +251,8 @@ select assert(
 
 insert into public.letters (id, pair_id, sender_id, recipient_id, title, body, unlock_on, date_visible)
 values
-  (:'ready',  :'pair', :'ann', :'ben', 'Ready',  'body', current_date - 1, true),
-  (:'future', :'pair', :'ann', :'ben', 'Future', 'body', current_date + 9, true);
+  (:'ready',  :'pair', :'ann', :'ben', 'Ready',  'body', (now() at time zone 'UTC')::date - 1, true),
+  (:'future', :'pair', :'ann', :'ben', 'Future', 'body', (now() at time zone 'UTC')::date + 9, true);
 
 select assert(
   (select count(*) from public.nudge_queue(0)
@@ -266,7 +284,7 @@ select assert(
 
 -- Now the one that matters. Bring the future letter's date forward so it is
 -- openable, then refuse it instead.
-update public.letters set unlock_on = current_date where id = :'future';
+update public.letters set unlock_on = (now() at time zone 'UTC')::date where id = :'future';
 select public.destroy_letter(:'future');
 
 select assert(
@@ -301,7 +319,7 @@ select assert(
 -- foreign key, so a made-up uuid tests the constraint rather than the claim.
 \set second 'cccc3333-0000-0000-0000-0000000033cc'
 insert into public.letters (id, pair_id, sender_id, recipient_id, title, body, unlock_on, date_visible)
-values (:'second', :'pair', :'ann', :'ben', 'Second', 'body', current_date, true);
+values (:'second', :'pair', :'ann', :'ben', 'Second', 'body', (now() at time zone 'UTC')::date, true);
 
 select assert(
   public.claim_nudge(:'pair', :'ben', 'letter_ready', null, :'second'::uuid) is true,

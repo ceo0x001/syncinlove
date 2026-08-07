@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useState, useTransition } from 'react'
-import { saveMenuItem, setMenuItemActive } from '@/app/actions'
+import { deleteMenuItem, saveMenuItem } from '@/app/actions'
 import type { MenuItem } from '@/lib/session'
 import { MENU_PRICE_CEILING, priceContext, tender } from '@/lib/tender'
 import { Button, Notice, TextField } from './ui'
@@ -69,6 +69,19 @@ export function MenuEditor({
 function ItemRow({ item, onEdit }: { item: MenuItem; onEdit: () => void }) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  /*
+    Removing is asked twice, and that is not ceremony.
+
+    It cannot be undone — the item is gone from the database, not hidden — and the last
+    control in this app that destroyed something on a single tap did exactly that to
+    somebody by accident. Confirmation here costs one tap and buys back the thing an
+    undo would have.
+
+    Local state rather than a dialog, matching the forms in settings: the question
+    replaces the button in place, so nothing moves under the finger and there is
+    nothing to dismiss.
+  */
+  const [confirming, setConfirming] = useState(false)
 
   return (
     <div
@@ -93,6 +106,11 @@ function ItemRow({ item, onEdit }: { item: MenuItem; onEdit: () => void }) {
           {!item.active ? (
             <p className="t-small mt-1 text-ink-faint">Unlisted — they can’t ask for this.</p>
           ) : null}
+          {confirming ? (
+            <p className="t-small mt-1 text-ink-muted">
+              Gone for good. Anything already asked for still stands.
+            </p>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-1">
@@ -103,19 +121,42 @@ function ItemRow({ item, onEdit }: { item: MenuItem; onEdit: () => void }) {
           >
             Edit
           </button>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() =>
-              startTransition(async () => {
-                const result = await setMenuItemActive(item.id, !item.active)
-                if (result?.error) setError(result.error)
-              })
-            }
-            className="t-small text-ink-faint underline decoration-hairline underline-offset-4 hover:text-ink-muted"
-          >
-            {item.active ? 'Unlist' : 'Relist'}
-          </button>
+          {confirming ? (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  startTransition(async () => {
+                    const result = await deleteMenuItem(item.id)
+                    if (result?.error) {
+                      setError(result.error)
+                      setConfirming(false)
+                    }
+                  })
+                }
+                className="t-small text-accent underline decoration-accent underline-offset-4"
+              >
+                {pending ? 'Removing…' : 'Remove'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                className="t-small text-ink-faint underline decoration-hairline underline-offset-4 hover:text-ink-muted"
+              >
+                Keep
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => setConfirming(true)}
+              className="t-small text-ink-faint underline decoration-hairline underline-offset-4 hover:text-ink-muted"
+            >
+              Remove
+            </button>
+          )}
         </div>
       </div>
 
