@@ -992,18 +992,27 @@ describe('the spiral', () => {
       longest = Math.max(longest, run)
     }
     /*
-      Seven, not six, and the number is measured rather than chosen.
+      Four, with the measured value at three, and getting here took four attempts.
 
-      Past roughly day 146 the remaining pool is about 15 heavy to 9 gentle, so no
-      ordering avoids some clustering. Three rationing thresholds were tried: strict
-      gives 7/6/6, parity is identical, and unconditional softening gives 11/17/18.
-      Strict wins, and this bound is where it lands.
+      What the number was, and why:
 
-      The lever is arithmetic — more light, logistics and future questions — not another
-      rule. Tightening this number without adding them would only invite tuning that
-      moves the run somewhere else.
+        12    original — gentle-after-heavy spent unrationed
+        7/6/6 with an on/off threshold: soften only while gentle outnumbers heavy
+        5/7/6 after adding 24 gentle questions — gentle improved, STANDARD REGRESSED
+        3/3/3 with the even-spread rule now in spiralFor
+
+      The third line is the useful one. I had claimed twice that more light and logistics
+      questions were the lever; adding 24 of them made one pace worse and left another
+      unchanged. Diagnosing instead of guessing found why: at day 91 of standard's
+      ordering there were 66 heavy and 37 gentle left, the on/off threshold was therefore
+      OFF, and yet 37 gentle among 66 heavy allows a longest run of 2. It was not running
+      out of gentle questions — it was refusing to spend the ones it had.
+
+      So the bound can be tightened, which is the opposite of what a metric usually
+      earns. Four rather than three, so a content batch that shifts the mix by one does
+      not fail a build for something nobody would notice.
     */
-    expect(longest, `longest heavy run at ${pace}`).toBeLessThanOrEqual(7)
+    expect(longest, `longest heavy run at ${pace}`).toBeLessThanOrEqual(4)
   })
 
   /*

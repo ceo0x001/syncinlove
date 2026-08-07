@@ -110,21 +110,14 @@ function interleave(pool: readonly Question[], after: Category | null): string[]
      * remains, and spending one now to soften a single adjacency costs a worse run
      * later.
      *
-     * That threshold looks too strict and is not. Measured, on the 170-question bank:
+     * NOTE: this threshold now only shapes ordering WITHIN one intensity band. What a
+     * couple actually experiences is decided by spiralFor, which supersedes it with an
+     * even-spread rule — place one gentle question every heavyLeft/gentleLeft heavy
+     * ones — after this on/off version was measured leaving spacing unused: 66 heavy
+     * and 37 gentle remaining allows a longest run of 2, and this rule produced 7.
      *
-     *   gentleLeft > heavyLeft   longest heavy run  7 / 6 / 6   (gentle/standard/bold)
-     *   gentleLeft >= heavyLeft  identical — never the deciding comparison
-     *   gentleLeft > 0           11 / 17 / 18
-     *
-     * Always softening is dramatically worse because the front patterns already draw
-     * band 1 heavily, so an unconditional preference spends the gentle axes early and
-     * hands a long run to the tail. The strict version is the best of the three.
-     *
-     * What the residual runs actually are: past roughly day 146 the remaining pool is
-     * about 15 heavy to 9 gentle, and no ordering of 15 into 10 gaps avoids clustering.
-     * The lever is arithmetic, not logic — more questions on light, logistics and
-     * future. That claim is now trustworthy in a way it was not the first three times
-     * it was made, because the rationing no longer spends them early.
+     * Kept as-is because within a single band the pools are small and the difference
+     * did not register. The reasoning above is still why it is not unconditional.
      *
      * A couple experiences the run, not the average, which is why the tests assert the
      * longest run and deliberately do not assert the adjacency percentage — rationing
@@ -368,6 +361,8 @@ export function spiralFor(pace: Pace): string[] {
   const out = [...opener]
   let prev = BY_ID.get(opener[opener.length - 1])!.category
   let slot = 0
+  /** Heavy questions emitted since the last gentle one. See the rationing note below. */
+  let sinceGentle = 0
 
   for (;;) {
     const live = [...queues.entries()].filter(([, ids]) => ids.length > 0)
@@ -436,8 +431,32 @@ export function spiralFor(pace: Pace): string[] {
           .filter(([key]) => HEAVY.has(key.slice(2) as Category))
           .reduce((n, [, ids]) => n + ids.length, 0)
 
+        /*
+          Spend the remaining gentle questions EVENLY across the remaining heavy ones.
+
+          The rule here was `gentleLeft > heavyLeft` — soften only while gentle still
+          outnumbers heavy — and it is an on/off switch where the problem is a rate.
+          Measured on the 194-question bank: at day 91 of standard's ordering, 66 heavy
+          and 37 gentle remained, the switch was therefore off, and the result was seven
+          heavy days in a row. With 37 gentle to place among 66 heavy the best possible
+          longest run is 2, so it was leaving spacing on the table rather than running out
+          of it.
+          
+          Both extremes were measured and both are worse. Always softening spends gentle
+          early and leaves a long pure-heavy tail (11/17/18). Never softening past parity
+          gives the run above. The answer is neither: place one gentle question every
+          `heavyLeft / gentleLeft` heavy ones, which is the even spread, recomputed each
+          step so it self-corrects as the pool changes.
+          
+          `sinceGentle` is what makes that a rate rather than a ratio — the budget is
+          spent when enough heavy has accumulated since the last gentle question, not
+          whenever the totals happen to look favourable.
+        */
+        const everyNth = gentleLeft > 0 ? Math.floor(heavyLeft / gentleLeft) : Infinity
+        const canAfford = sinceGentle >= everyNth
+
         const gentle =
-          HEAVY.has(prev) && gentleLeft > heavyLeft
+          HEAVY.has(prev) && gentleLeft > 0 && canAfford
             ? usable.filter(([key]) => !HEAVY.has(key.slice(2) as Category))
             : []
         const tier = gentle.length > 0 ? gentle : usable
@@ -474,6 +493,7 @@ export function spiralFor(pace: Pace): string[] {
         const [key, ids] = tier[0]
         picked = ids.shift() as string
         prev = key.slice(2) as Category
+        sinceGentle = HEAVY.has(prev) ? sinceGentle + 1 : 0
         break
       }
     }
