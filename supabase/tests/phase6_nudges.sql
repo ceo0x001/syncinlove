@@ -326,4 +326,129 @@ select assert(
   'but a different letter claims separately, so the second one is not swallowed'
 );
 
+-- ---------------------------------------------------------------------------
+-- The reminder tapers, and then stops
+--
+-- It used to fire every evening a person had not answered, forever, always saying
+-- "thirty seconds keeps the streak" — false after the second missed day, and twenty-one
+-- identical emails about an abandoned streak is how an address marks a sender as spam.
+-- Losing the channel costs the nudges that matter: a letter reaching its date, an ask.
+--
+-- Asserted through days_since rather than by simulating a month of evenings, because the
+-- gap is what the rule reads and simulating time would test the fixture instead.
+-- ---------------------------------------------------------------------------
+
+savepoint before_taper;
+
+delete from public.notifications where pair_id = :'pair';
+delete from public.answers where pair_id = :'pair';
+
+-- Ann last answered on the pair's day 0; move day_zero to place "today" a chosen
+-- number of days later. Dated on the PAIR's clock, like every other fixture here.
+insert into public.answers (pair_id, day_index, question_id, user_id, self_payload, guess_payload)
+values (:'pair', 0, (select id from public.questions limit 1), :'ann', '{}'::jsonb, '{}'::jsonb);
+
+-- One day away: nightly, and the streak is still worth mentioning.
+update public.pairs set day_zero = (now() at time zone 'UTC')::date - 1 where id = :'pair';
+select assert(
+  (select count(*) from public.nudge_queue(0)
+    where kind = 'closing_soon' and user_id = :'ann'::uuid) = 1,
+  'one day away is still nudged nightly'
+);
+
+select assert(
+  (select days_since from public.nudge_queue(0)
+    where kind = 'closing_soon' and user_id = :'ann'::uuid) = 1,
+  'and the queue carries how long it has been, so the copy can match it'
+);
+
+-- Three days: still nightly.
+update public.pairs set day_zero = (now() at time zone 'UTC')::date - 3 where id = :'pair';
+select assert(
+  (select count(*) from public.nudge_queue(0)
+    where kind = 'closing_soon' and user_id = :'ann'::uuid) = 1,
+  'three days away is still nudged'
+);
+
+/*
+  Day four is the first silence, and it is the point of the whole change.
+
+  Nightly for the first three days, then nothing until the weekly beat. Somebody four
+  days off does not need a fourth consecutive evening email about a streak that has
+  already gone.
+*/
+update public.pairs set day_zero = (now() at time zone 'UTC')::date - 4 where id = :'pair';
+select assert(
+  (select count(*) from public.nudge_queue(0)
+    where kind = 'closing_soon' and user_id = :'ann'::uuid) = 0,
+  'the fourth evening in a row says nothing'
+);
+
+update public.pairs set day_zero = (now() at time zone 'UTC')::date - 6 where id = :'pair';
+select assert(
+  (select count(*) from public.nudge_queue(0)
+    where kind = 'closing_soon' and user_id = :'ann'::uuid) = 0,
+  'nor the sixth'
+);
+
+-- Then a weekly beat, so the app has not simply vanished.
+update public.pairs set day_zero = (now() at time zone 'UTC')::date - 7 where id = :'pair';
+select assert(
+  (select count(*) from public.nudge_queue(0)
+    where kind = 'closing_soon' and user_id = :'ann'::uuid) = 1,
+  'a week away gets one, warmly'
+);
+
+update public.pairs set day_zero = (now() at time zone 'UTC')::date - 28 where id = :'pair';
+select assert(
+  (select count(*) from public.nudge_queue(0)
+    where kind = 'closing_soon' and user_id = :'ann'::uuid) = 1,
+  'and four weeks away gets the last one'
+);
+
+-- And then it stops for good.
+update public.pairs set day_zero = (now() at time zone 'UTC')::date - 35 where id = :'pair';
+select assert(
+  (select count(*) from public.nudge_queue(0)
+    where kind = 'closing_soon' and user_id = :'ann'::uuid) = 0,
+  'past a month it stops asking — a month of evenings not landing is an answer'
+);
+
+update public.pairs set day_zero = (now() at time zone 'UTC')::date - 400 where id = :'pair';
+select assert(
+  (select count(*) from public.nudge_queue(0)
+    where kind = 'closing_soon' and user_id = :'ann'::uuid) = 0,
+  'and stays stopped, however long it has been'
+);
+
+/*
+  What the taper must NOT touch.
+
+  These fire on events with their own meaning and none of them repeats. A couple who
+  went quiet for a year and then receive a letter should hear about the letter.
+*/
+update public.pairs set day_zero = (now() at time zone 'UTC')::date - 400 where id = :'pair';
+
+insert into public.letters (id, pair_id, sender_id, recipient_id, title, body, unlock_on, date_visible)
+values ('cccc0000-0000-0000-0000-00000000cccc', :'pair', :'ben', :'ann', 'Late', 'body',
+        (now() at time zone 'UTC')::date - 1, true);
+
+select assert(
+  (select count(*) from public.nudge_queue(0)
+    where kind = 'letter_ready' and user_id = :'ann'::uuid) = 1,
+  'a letter still arrives however long the couple has been away'
+);
+
+-- A brand-new pairing is not a dormant one.
+delete from public.answers where pair_id = :'pair';
+update public.pairs set day_zero = (now() at time zone 'UTC')::date where id = :'pair';
+select assert(
+  (select days_since from public.nudge_queue(0)
+    where kind = 'closing_soon' and user_id = :'ann'::uuid limit 1) = 1,
+  'a couple who have never answered read as one day away, not as null'
+);
+
+rollback to savepoint before_taper;
+
+
 rollback;
