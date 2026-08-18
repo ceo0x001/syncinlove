@@ -262,7 +262,7 @@ export async function GET(
             }}
           >
             <span style={{ fontFamily: 'InterSemi', fontSize: 30, color: '#0F172A' }}>
-              Take the challenge
+              Challenge your person
             </span>
 
             {/*
