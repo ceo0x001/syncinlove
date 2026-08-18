@@ -113,6 +113,25 @@ export async function GET(
           position: 'relative',
           background: '#FFFCFA',
           fontFamily: 'Inter',
+          /*
+            Room for the footer, which is absolutely positioned and therefore invisible
+            to justifyContent.
+
+            Without it the stack centres on the full 1350 as though nothing were pinned
+            below, and the measurements say what that costs: 230px of space above the
+            logo against 55px under the invitation. The composition was bottom-heavy by
+            175px — the kind of thing that reads as "slightly off" without anyone being
+            able to say why.
+
+            Reserving the footer's own height plus its offset makes the centring honest:
+            the stack is centred in the space it actually occupies.
+
+            240 rather than the footer's exact height, on purpose. A composition centred
+            geometrically reads as sitting low, because the eye places the centre of a
+            frame slightly above the middle. The measured result is 110 above and 89
+            below — a shade top-heavy by the ruler, level to the eye.
+          */
+          paddingBottom: 240,
         }}
       >
         {/* The brand gradient as three soft pools, same as the app's page wash.
@@ -157,9 +176,24 @@ export async function GET(
           }}
         />
 
+        {/*
+            marginLeft nudges the lockup back onto the same axis as everything else.
+
+            Measured, not guessed: the ink in this bitmap spans x 362–694, centring on
+            528 while the score, the names, the streak and the footer all centre on 540.
+            The IMG is centred correctly — the artwork inside it is not, so the whole
+            card had one element hanging 12px to the left. A flex item's margin is part
+            of its box, so 24 here moves the content 12.
+        */}
         {/* eslint-disable-next-line @next/next/no-img-element -- Satori renders
             this to a bitmap server-side; next/image has no meaning here. */}
-        <img src={logo} alt="SyncinLove" width={359} height={156} style={{ marginBottom: 64 }} />
+        <img
+          src={logo}
+          alt="SyncinLove"
+          width={359}
+          height={156}
+          style={{ marginBottom: 64, marginLeft: 24 }}
+        />
 
         <div
           style={{
@@ -237,7 +271,7 @@ export async function GET(
         <div
           style={{
             position: 'absolute',
-            bottom: 54,
+            bottom: 88,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
