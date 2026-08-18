@@ -172,6 +172,135 @@ reset role;
 
 
 -- ---------------------------------------------------------------------------
+-- Dating a milestone from when it actually happened
+--
+-- award_tender_marks runs on a reveal, so a couple already past a rung when this shipped
+-- would have had it stamped with their NEXT reveal. There was such a couple. A milestone
+-- whose date is wrong about when it was reached is worse than none — it is the thing you
+-- would screenshot.
+-- ---------------------------------------------------------------------------
+
+savepoint before_backfill;
+
+delete from public.tender_marks where pair_id = :'pair';
+delete from public.tender_entries where pair_id = :'pair';
+
+-- Three credits on three different days. The second is the one that crosses a million.
+insert into public.tender_entries (pair_id, user_id, amount, reason, day_index, created_at)
+values
+  (:'pair', :'ada', 600000, 'reveal', 1, now() - interval '10 days'),
+  (:'pair', :'ada', 600000, 'reveal', 2, now() - interval '6 days'),
+  (:'pair', :'ada', 600000, 'reveal', 3, now() - interval '2 days');
+
+-- What award_tender_marks does on its own: correct rung, today's date.
+select public.award_tender_marks(:'pair');
+
+select assert(
+  (select reached_at::date from public.tender_marks
+    where pair_id = :'pair' and user_id = :'ada' and threshold = 1000000)
+    = (now() at time zone 'UTC')::date,
+  'awarding on a reveal dates the mark today, which is wrong for a rung already passed'
+);
+
+-- The backfill, verbatim from 0031.
+with earned as (
+  select te.pair_id, te.user_id, te.created_at,
+         sum(te.amount) over (partition by te.pair_id, te.user_id
+                              order by te.created_at, te.id) as running
+  from public.tender_entries te
+  where te.reason = any (public.tender_earning_reasons())
+),
+crossings as (
+  select e.pair_id, e.user_id, m.threshold, min(e.created_at) as reached_at
+  from earned e cross join public.tender_milestones() m
+  where e.running >= m.threshold
+  group by e.pair_id, e.user_id, m.threshold
+)
+insert into public.tender_marks (pair_id, user_id, threshold, reached_at)
+select pair_id, user_id, threshold, reached_at from crossings
+on conflict (pair_id, user_id, threshold) where user_id is not null
+do update set reached_at = excluded.reached_at;
+
+select assert(
+  (select reached_at::date from public.tender_marks
+    where pair_id = :'pair' and user_id = :'ada' and threshold = 1000000)
+    = (now() - interval '6 days')::date,
+  'the backfill moves it to the day the ledger says they crossed'
+);
+
+select assert(
+  (select count(*) from public.tender_marks
+    where pair_id = :'pair' and user_id = :'ada') = 1,
+  'and corrects rather than duplicating — one row, not two'
+);
+
+-- Re-running it is a no-op, which is what makes it safe to paste twice.
+with earned as (
+  select te.pair_id, te.user_id, te.created_at,
+         sum(te.amount) over (partition by te.pair_id, te.user_id
+                              order by te.created_at, te.id) as running
+  from public.tender_entries te
+  where te.reason = any (public.tender_earning_reasons())
+),
+crossings as (
+  select e.pair_id, e.user_id, m.threshold, min(e.created_at) as reached_at
+  from earned e cross join public.tender_milestones() m
+  where e.running >= m.threshold
+  group by e.pair_id, e.user_id, m.threshold
+)
+insert into public.tender_marks (pair_id, user_id, threshold, reached_at)
+select pair_id, user_id, threshold, reached_at from crossings
+on conflict (pair_id, user_id, threshold) where user_id is not null
+do update set reached_at = excluded.reached_at;
+
+select assert(
+  (select count(*) from public.tender_marks
+    where pair_id = :'pair' and user_id = :'ada') = 1
+  and (select reached_at::date from public.tender_marks
+        where pair_id = :'pair' and user_id = :'ada' and threshold = 1000000)
+      = (now() - interval '6 days')::date,
+  'and running it twice changes nothing'
+);
+
+/*
+  Spending cannot move the date either.
+
+  A debit after the crossing must not shift it, because the running sum is over EARNED
+  entries only. If a purchase were included the total would dip back under the threshold
+  and the crossing would appear to happen later — or twice.
+*/
+insert into public.tender_entries (pair_id, user_id, amount, reason, created_at)
+values (:'pair', :'ada', -1700000, 'purchase', now() - interval '5 days');
+
+with earned as (
+  select te.pair_id, te.user_id, te.created_at,
+         sum(te.amount) over (partition by te.pair_id, te.user_id
+                              order by te.created_at, te.id) as running
+  from public.tender_entries te
+  where te.reason = any (public.tender_earning_reasons())
+),
+crossings as (
+  select e.pair_id, e.user_id, m.threshold, min(e.created_at) as reached_at
+  from earned e cross join public.tender_milestones() m
+  where e.running >= m.threshold
+  group by e.pair_id, e.user_id, m.threshold
+)
+insert into public.tender_marks (pair_id, user_id, threshold, reached_at)
+select pair_id, user_id, threshold, reached_at from crossings
+on conflict (pair_id, user_id, threshold) where user_id is not null
+do update set reached_at = excluded.reached_at;
+
+select assert(
+  (select reached_at::date from public.tender_marks
+    where pair_id = :'pair' and user_id = :'ada' and threshold = 1000000)
+    = (now() - interval '6 days')::date,
+  'a purchase afterwards does not move the date, because the sum is over earned only'
+);
+
+rollback to savepoint before_backfill;
+
+
+-- ---------------------------------------------------------------------------
 -- Privileges
 --
 -- The eight helpers that answered the anon key before 0030. Asserted here because a
