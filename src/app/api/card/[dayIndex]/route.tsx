@@ -220,18 +220,97 @@ export async function GET(
           </div>
         ) : null}
 
+        {/*
+            The invitation, and the only piece of this card addressed to whoever
+            it gets shared WITH rather than to the couple who made it.
+
+            Kept to two quiet lines at the foot, below everything else, because
+            the card has to remain something a couple is happy to post. A score
+            and two names is a nice thing to share; an advertisement is not, and
+            an ad wearing a couple's evening as a costume is worse. So it stays
+            small, stays last, and does not touch the score, the names or the
+            streak — the arrangement above this is unchanged.
+
+            Absolutely positioned as one block, so adding it moves nothing that
+            was already on the card.
+        */}
         <div
           style={{
             position: 'absolute',
-            bottom: 62,
+            bottom: 54,
             display: 'flex',
-            fontSize: 28,
-            letterSpacing: 3,
-            color: '#97A0B0',
-            fontFamily: 'InterSemi',
+            flexDirection: 'column',
+            alignItems: 'center',
           }}
         >
-          syncin.love
+          <div
+            style={{
+              display: 'flex',
+              fontFamily: 'Instrument Serif',
+              fontSize: 38,
+              color: '#5B6478',
+            }}
+          >
+            How well do you know your person?
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginTop: 18,
+            }}
+          >
+            <span style={{ fontFamily: 'InterSemi', fontSize: 30, color: '#0F172A' }}>
+              Take the challenge
+            </span>
+
+            {/*
+                Drawn rather than typed.
+
+                An arrow character would depend on U+2192 existing in Inter at the
+                weight embedded here, and a missing glyph in Satori is a blank box
+                on an image that gets posted publicly — silent, and only visible
+                once somebody has already shared it. An inline SVG cannot go
+                missing.
+            */}
+            <svg
+              width="54"
+              height="20"
+              viewBox="0 0 54 20"
+              fill="none"
+              style={{ marginLeft: 20, marginRight: 20 }}
+            >
+              <path
+                d="M2 10 H48 M40 3 L49 10 L40 17"
+                stroke="#FF6B6B"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+
+            {/*
+                Darkened from #97A0B0 to the muted tone already used for "Today,
+                together" — an existing colour on this card, not a new one.
+
+                It was the faintest text here when nothing pointed at it, which was
+                right. Now an arrow leads the eye to it, and a destination that is
+                the weakest thing on the line is the wrong end of the gesture. It
+                also has to survive being screenshotted and recompressed by a
+                messaging app, which is the only way anyone will ever see it.
+            */}
+            <span
+              style={{
+                fontFamily: 'InterSemi',
+                fontSize: 28,
+                letterSpacing: 3,
+                color: '#5B6478',
+              }}
+            >
+              syncin.love
+            </span>
+          </div>
         </div>
       </div>
     ),
