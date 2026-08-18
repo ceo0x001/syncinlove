@@ -145,6 +145,58 @@ export interface Wallet {
   received: number
 }
 
+/** One rung, once it has been reached. */
+export interface Rung {
+  threshold: number
+  label: string
+  reachedAt: string
+}
+
+export interface Standing {
+  /** Lifetime earned by me, which spending never reduces. */
+  earned: number
+  /** The couple's combined earned. Crosses every rung its members do, and first. */
+  joint: number
+  /** Highest rung I have reached, or null while still on the way to the first. */
+  mine: Rung | null
+  /** Highest the two of us have reached together. */
+  ours: Rung | null
+  /** The next rung up from where I am, or null once the ladder is finished. */
+  next: { threshold: number; label: string } | null
+}
+
+/**
+ * The standing RPC returns jsonb, so it arrives as `unknown` and is read rather than
+ * cast. A cast would let a shape change in SQL surface as a runtime crash on the wallet;
+ * reading it means the worst case is a couple briefly seeing no rung.
+ */
+function readStanding(raw: unknown): Standing {
+  const d = (raw ?? {}) as Record<string, unknown>
+
+  const rung = (value: unknown): Rung | null => {
+    if (!value || typeof value !== 'object') return null
+    const r = value as Record<string, unknown>
+    if (typeof r.threshold !== 'number' || typeof r.label !== 'string') return null
+    return { threshold: r.threshold, label: r.label, reachedAt: String(r.reached_at ?? '') }
+  }
+
+  const next =
+    d.next && typeof d.next === 'object'
+      ? (d.next as { threshold?: unknown; label?: unknown })
+      : null
+
+  return {
+    earned: Number(d.earned ?? 0),
+    joint: Number(d.joint ?? 0),
+    mine: rung(d.mine),
+    ours: rung(d.ours),
+    next:
+      next && typeof next.threshold === 'number' && typeof next.label === 'string'
+        ? { threshold: next.threshold, label: next.label }
+        : null,
+  }
+}
+
 export interface Economy {
   mine: Wallet
   /** Their balance too. Nothing in the economy is hidden inside a pair. */
@@ -160,6 +212,15 @@ export interface Economy {
   shouldPromptMenu: boolean
   /** Tender committed to requests that haven't settled yet. */
   held: number
+  /**
+   * Where they stand on the tender ladder.
+   *
+   * Read from one RPC rather than assembled here, because the thresholds and their
+   * labels are a rule that lives in SQL — copying them into TypeScript would be a
+   * second home for something the database already decides, and the earning predicate
+   * this counts on already had four copies once, two of which had drifted.
+   */
+  standing: Standing
   /**
    * True when a balance has outrun what there is to spend it on.
    *
@@ -535,6 +596,7 @@ async function loadEconomy(
     theirBalanceRes,
     theirEarnedRes,
     theirReceivedRes,
+    standingRes,
     itemsRes,
     purchasesRes,
     changesRes,
@@ -553,6 +615,9 @@ async function loadEconomy(
       partnerId
         ? supabase.rpc('tender_received', { p_user_id: partnerId })
         : Promise.resolve({ data: 0 }),
+      // Position matters: this array is destructured positionally above, so a call in
+      // the wrong slot silently swaps two results rather than failing.
+      supabase.rpc('tender_standing'),
       supabase
         .from('menu_items')
         .select('id, owner_id, title, price, active')
@@ -634,6 +699,7 @@ async function loadEconomy(
     needsEmail,
     needsMoreItems,
     held: Number(heldRes.data ?? 0),
+    standing: readStanding(standingRes.data),
     // Ten times the dearest thing they could ask for. Past that, the balance has
     // stopped constraining anything and repricing is the honest fix.
     pilingUp:

@@ -39,6 +39,8 @@ export default async function MenuPage() {
 
         <Wallets economy={economy} myName={home.me.firstName} theirName={them} />
 
+        <Standing standing={economy.standing} theirName={them} />
+
         <Rule />
 
         <section className="stack" style={{ ['--stack-gap' as string]: '1.25rem' }}>
@@ -187,6 +189,89 @@ function Wallets({
           ) : null}
         </div>
       ) : null}
+    </div>
+  )
+}
+
+/**
+ * Where the two of you stand on the tender ladder.
+ *
+ * Under the wallets rather than beside them, because a balance is today and this is
+ * everything: what has been earned across the whole pairing, which spending never
+ * reduces. A millionaire who has spent it all on their partner is still a millionaire —
+ * that is the point of counting earned rather than held, and this is where it shows.
+ *
+ * Shows the next rung as well as the last, so it congratulates AND gives something to
+ * walk toward. A page that only ever says "well done" stops being read.
+ */
+function Standing({
+  standing,
+  theirName,
+}: {
+  standing: import('@/lib/session').Standing
+  theirName: string
+}) {
+  const { mine, ours, next, earned } = standing
+
+  // Nothing reached and nothing to say yet — a couple three days in does not need to be
+  // told how far away a million is.
+  if (!mine && !ours && earned < 100000) return null
+
+  const toNext = next ? Math.min(100, Math.round((earned / next.threshold) * 100)) : 100
+
+  /*
+    A million is a person; everything above it is an amount.
+
+    One label cannot be both. "Millionaire" pluralises and reads as an identity, which is
+    exactly the word this feature exists for — but the same treatment produced "You and
+    Dada are Twenty-five millions, together" and "34% of the way to your own millionaire",
+    neither of which is English.
+
+    So the first rung gets its own phrasing and the rest are spoken as quantities. Not a
+    special case grudgingly admitted: millionaire IS the special one. It is the only rung
+    anybody has a word for.
+  */
+  const MILLION = 1000000
+
+  return (
+    <div className="rounded-[0.75rem] bg-paper-sunken px-4 py-3">
+      {ours ? (
+        <p className="t-small text-ink">
+          {ours.threshold === MILLION
+            ? `You and ${theirName} are Tender Millionaires.`
+            : `You and ${theirName} have passed ${ours.label.toLowerCase()}, together.`}
+        </p>
+      ) : null}
+
+      {/* The real figure, not the threshold. Printing mine.threshold here read as
+          "1,000,000 earned" for somebody who had earned 1,400,000 — a number that looks
+          like a fact about them and is actually a fact about the rung. */}
+      {mine ? (
+        <p className={`t-small text-ink-muted ${ours ? 'mt-1' : ''}`}>
+          {mine.threshold === MILLION
+            ? `On your own, a Tender Millionaire — ${formatTender(earned)} earned.`
+            : `On your own, past ${mine.label.toLowerCase()} — ${formatTender(earned)} earned.`}
+        </p>
+      ) : null}
+
+      {/* "Your own" and "your first" carry weight here.
+
+          The couple reach every rung first, on their combined total, so the ordinary
+          state is holding a joint rung while still climbing to the personal one. Without
+          that, the panel said "You and Dada are Millionaires, together" directly above
+          "62% of the way to millionaire" — the app appearing to contradict itself rather
+          than reporting two different counts. */}
+      {next ? (
+        <p className="t-small mt-1 text-ink-faint">
+          {next.threshold === MILLION
+            ? `${toNext}% of the way to your first million.`
+            : `${toNext}% of the way to your own ${next.label.toLowerCase()}.`}
+        </p>
+      ) : (
+        <p className="t-small mt-1 text-ink-faint">
+          Top of the ladder. There is nothing above this one.
+        </p>
+      )}
     </div>
   )
 }
