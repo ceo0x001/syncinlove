@@ -312,6 +312,106 @@ rollback to savepoint before_backfill;
 
 
 -- ---------------------------------------------------------------------------
+-- Which rungs a particular day carries
+--
+-- The wallet shows where a couple stands; this marks the reveal where it happened. Read
+-- per day rather than from tender_standing(), which returns only the HIGHEST rung — once
+-- a couple passes five million, standing stops mentioning the million, and the reveal
+-- where they crossed it would quietly lose its marker.
+-- ---------------------------------------------------------------------------
+
+savepoint before_day_marks;
+
+delete from public.tender_marks where pair_id = :'pair';
+
+-- Ada crossed a million on the pair's day 3, and the couple on day 1.
+insert into public.tender_marks (pair_id, user_id, threshold, reached_at)
+select :'pair', :'ada', 1000000,
+       ((p.day_zero + 3)::timestamp + interval '14 hours') at time zone p.time_zone
+from public.pairs p where p.id = :'pair';
+
+insert into public.tender_marks (pair_id, user_id, threshold, reached_at)
+select :'pair', null, 1000000,
+       ((p.day_zero + 1)::timestamp + interval '9 hours') at time zone p.time_zone
+from public.pairs p where p.id = :'pair';
+
+set sync.uid = 'a0b00000-0000-0000-0000-0000000000ab';
+set role authenticated;
+
+select assert(
+  (select count(*) from public.marks_reached_on_day(3)) = 1
+  and (select joint from public.marks_reached_on_day(3)) is false,
+  'day 3 carries Ada''s own rung and nothing else'
+);
+
+select assert(
+  (select count(*) from public.marks_reached_on_day(1)) = 1
+  and (select joint from public.marks_reached_on_day(1)) is true,
+  'day 1 carries the couple''s'
+);
+
+select assert(
+  (select count(*) from public.marks_reached_on_day(2)) = 0,
+  'and a day nothing happened on carries nothing'
+);
+
+/*
+  The reason this lives in SQL at all.
+
+  reached_at is a timestamptz. Deciding "the same day" in the app would use whatever zone
+  the server runs in, so a couple whose milestone landed at 00:30 their time would have it
+  filed against the previous day for anyone rendering from UTC. Moving the pairing 14
+  hours east must not move which day the mark belongs to.
+*/
+reset role;
+update public.pairs set time_zone = 'Pacific/Kiritimati' where id = :'pair';
+set sync.uid = 'a0b00000-0000-0000-0000-0000000000ab';
+set role authenticated;
+
+/*
+  It MOVES, and that is the proof.
+
+  I first asserted the day stayed at 3 when the pairing moved east, which is the opposite
+  of what pair-local means and failed in all four session timezones — correctly. The mark
+  is a fixed instant: 14:00 UTC on day 3. Read on a UTC+14 clock that same instant is
+  04:00 the following morning, so it belongs to day 4 now. A function reading the server's
+  zone would have kept it on day 3 and passed my wrong assertion.
+*/
+select assert(
+  (select count(*) from public.marks_reached_on_day(3)) = 0
+  and (select count(*) from public.marks_reached_on_day(4)) = 1,
+  'the day is decided on the pairing''s clock — move them east and the mark moves with them'
+);
+
+reset role;
+update public.pairs set time_zone = 'UTC' where id = :'pair';
+
+-- A partner's own rung is theirs to be told about, not something to congratulate
+-- somebody else for on their reveal.
+insert into public.tender_marks (pair_id, user_id, threshold, reached_at)
+select :'pair', :'bo', 1000000,
+       ((p.day_zero + 3)::timestamp + interval '14 hours') at time zone p.time_zone
+from public.pairs p where p.id = :'pair';
+
+set sync.uid = 'a0b00000-0000-0000-0000-0000000000ab';
+set role authenticated;
+
+select assert(
+  (select count(*) from public.marks_reached_on_day(3)) = 1,
+  'a partner''s personal rung does not appear on your reveal'
+);
+
+reset role;
+
+select assert(
+  has_function_privilege('anon', 'public.marks_reached_on_day(int)', 'execute') is false,
+  'and the day''s marks are not readable anonymously'
+);
+
+rollback to savepoint before_day_marks;
+
+
+-- ---------------------------------------------------------------------------
 -- Privileges
 --
 -- The eight helpers that answered the anon key before 0030. Asserted here because a

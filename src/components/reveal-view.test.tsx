@@ -55,6 +55,7 @@ function reveal(theirTruth: number, myGuess: number, myTruth: number, theirGuess
     iReadThem: 50,
     theyReadMe: 40,
     earned: 1200,
+    marks: [],
   }
   const view = render(<RevealView {...props} />)
   // The reveal is choreographed on timers; run them all so the marks are open rather
@@ -162,6 +163,7 @@ describe('RevealView — the slider card', () => {
         iReadThem={50}
         theyReadMe={40}
         earned={1200}
+        marks={[]}
       />,
     )
 
@@ -195,6 +197,7 @@ describe('RevealView — the slider card', () => {
         iReadThem={0}
         theyReadMe={0}
         earned={null}
+        marks={[]}
       />,
     )
     act(() => {

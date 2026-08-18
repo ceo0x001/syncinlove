@@ -9,6 +9,7 @@ import { MERGE_GAP, closeness, gapSentence } from '@/lib/questions/scale-words'
 import type { AnswerPayload, ChoiceFacet, Facet, Question, ScaleFacet } from '@/lib/questions/types'
 import { NEUTRAL_MATCH, scoreFacet } from '@/lib/sync/score'
 import { tender } from '@/lib/tender'
+import { MilestoneBanner, type Mark } from './milestone-banner'
 import { ShareCardButton } from './share-card-button'
 import { Button, Rule } from './ui'
 
@@ -52,6 +53,14 @@ export interface RevealProps {
   theyReadMe: number
   /** Tender this day paid each of them, or null before Phase 3 data exists. */
   earned: number | null
+  /**
+   * Rungs on the tender ladder crossed on this day, if any.
+   *
+   * Read per day rather than from tender_standing(), which returns only the highest —
+   * once a couple passes five million, standing stops mentioning the million and the
+   * reveal where they crossed it would lose its marker.
+   */
+  marks: Mark[]
 }
 
 /** Stage gates. Milliseconds from mount. */
@@ -81,6 +90,7 @@ export function RevealView(props: RevealProps) {
     iReadThem,
     theyReadMe,
     earned,
+    marks,
   } = props
 
   const { stage, reduced } = useRevealSequence()
@@ -159,6 +169,20 @@ export function RevealView(props: RevealProps) {
           ) : null}
         </div>
       </header>
+
+      {/* After the score, before everything else. It belongs to the day rather than to
+          the answers, and putting it below the facets would bury the biggest thing that
+          happened underneath the smallest. */}
+      {marks.length > 0 ? (
+        <div style={rise(at(3), { reduced, delay: 60 })}>
+          <MilestoneBanner
+            marks={marks}
+            theirName={theirFirstName}
+            dayIndex={dayIndex}
+            open={at(3)}
+          />
+        </div>
+      ) : null}
 
       <Rule />
 

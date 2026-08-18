@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useState } from 'react'
+import { useConfetti } from './confetti'
 import type { Occasion } from '@/lib/occasions'
 import { haptic } from '@/lib/haptics'
 
@@ -31,63 +32,16 @@ import { haptic } from '@/lib/haptics'
  * Their positions are random, and random values in a server render disagree with
  * the client's on hydration. So the array starts empty and fills in an effect,
  * which also means the server sends no decoration at all.
- */
+/*
+  The confetti itself now lives in ./confetti, shared with the tender milestone banner.
 
-/**
- * Whether the viewer welcomes movement.
- *
- * `useSyncExternalStore` rather than an effect that calls setState — this is exactly
- * what the hook is for, and it buys something an effect would not: the media query
- * is subscribed, so somebody toggling reduced motion in their OS settings while the
- * page is open sees the card stop being pressable rather than keeping a control that
- * now lies.
- *
- * The server snapshot is `false`: no animation is rendered server-side, so the first
- * paint never promises motion it might not be allowed to deliver.
- */
-const REDUCE = '(prefers-reduced-motion: reduce)'
+  Extracted rather than copied: the reduced-motion handling, the burst keys that make a
+  re-fire actually re-animate, and the cleanup that stops repeated taps piling up nodes
+  were each learned the hard way here. A second copy is how one of them ends up wrong.
 
-function subscribeMotion(onChange: () => void): () => void {
-  const mql = window.matchMedia(REDUCE)
-  mql.addEventListener('change', onChange)
-  return () => mql.removeEventListener('change', onChange)
-}
-
-function motionSnapshot(): boolean {
-  return !window.matchMedia(REDUCE).matches
-}
-
-interface Piece {
-  left: number
-  delay: number
-  duration: number
-  drift: number
-  rotate: number
-  size: number
-  kind: 'heart' | 'dot' | 'ribbon'
-  hue: string
-}
-
-const HUES = [
-  'var(--accent)',
-  'var(--accent-2)',
-  'var(--accent-3)',
-  'var(--accent)',
-]
-
-function makePieces(count: number): Piece[] {
-  return Array.from({ length: count }, () => ({
-    left: Math.random() * 100,
-    delay: Math.random() * 420,
-    duration: 2600 + Math.random() * 1800,
-    // Sideways travel, signed, so the burst spreads rather than raining straight down.
-    drift: (Math.random() - 0.5) * 160,
-    rotate: (Math.random() - 0.5) * 720,
-    size: 6 + Math.random() * 7,
-    kind: (['heart', 'dot', 'ribbon'] as const)[Math.floor(Math.random() * 3)],
-    hue: HUES[Math.floor(Math.random() * HUES.length)],
-  }))
-}
+  What stayed is this component's own rule — once per occasion per pair-local day — and
+  the bear.
+*/
 
 export function OccasionBanner({
   occasion,
@@ -97,22 +51,7 @@ export function OccasionBanner({
   /** Pair-local `YYYY-MM-DD`. Part of the seen-key so the flag cannot outlive the day. */
   today: string
 }) {
-  const [pieces, setPieces] = useState<Piece[]>([])
-  /*
-    Which burst these pieces belong to.
-    
-    Part of every piece's React key, and that is not cosmetic: with `key={i}` React
-    reuses the same DOM nodes on a re-fire, the CSS animation is never re-applied,
-    and tapping does nothing visible. Changing the key forces a remount, which is
-    what restarts the fall.
-  */
-  const [burst, setBurst] = useState(0)
-  /*
-    Used for two decisions: whether the burst fires on open, and whether the card is
-    a button at all. A tappable card that cannot animate is a dead control, and a dead
-    control is worse than no control.
-  */
-  const mayAnimate = useSyncExternalStore(subscribeMotion, motionSnapshot, () => false)
+  const { view, fire, mayAnimate } = useConfetti(38)
   /*
     Whether the tap hint has served its purpose.
     
@@ -124,11 +63,7 @@ export function OccasionBanner({
   */
   const [hinted, setHinted] = useState(false)
 
-  const fire = useCallback(() => {
-    setBurst((n) => n + 1)
-    setPieces(makePieces(38))
-    haptic('reveal')
-  }, [])
+
 
   useEffect(() => {
     /*
@@ -177,44 +112,10 @@ export function OccasionBanner({
     return () => window.cancelAnimationFrame(frame)
   }, [occasion.id, today, fire, mayAnimate])
 
-  /*
-    Clear the DOM once the longest piece has landed.
-    
-    Keyed on `burst`, so a tap mid-fall restarts this rather than letting the
-    previous timeout cut the new burst short — the effect's cleanup cancels the old
-    timer on every re-fire. Tapping repeatedly therefore keeps at most 38 nodes
-    alive, however fast somebody presses it.
-  */
-  useEffect(() => {
-    if (pieces.length === 0) return
-    const timer = window.setTimeout(() => setPieces([]), 5200)
-    return () => window.clearTimeout(timer)
-  }, [burst, pieces.length])
 
   return (
     <>
-      {pieces.length > 0 ? (
-        <div className="occasion-confetti" aria-hidden>
-          {pieces.map((p, i) => (
-            <span
-              key={`${burst}-${i}`}
-              className={`occasion-piece occasion-${p.kind}`}
-              style={{
-                left: `${p.left}%`,
-                background: p.kind === 'heart' ? 'transparent' : p.hue,
-                color: p.hue,
-                width: `${p.size}px`,
-                height: `${p.kind === 'ribbon' ? p.size * 2.2 : p.size}px`,
-                animationDelay: `${p.delay}ms`,
-                animationDuration: `${p.duration}ms`,
-                ['--drift' as string]: `${p.drift}px`,
-                ['--spin' as string]: `${p.rotate}deg`,
-              }}
-            />
-          ))}
-        </div>
-      ) : null}
-
+      {view}
       {/*
         A button only where it can do something.
 
@@ -232,6 +133,11 @@ export function OccasionBanner({
           onClick={() => {
             setHinted(true)
             fire()
+            // Restored deliberately. The haptic used to live inside the local fire
+            // callback and extracting the confetti took it with it — but it belongs to
+            // the TAP, not to the burst. The automatic one on open never buzzed and
+            // should not start now that the two share a hook.
+            haptic('reveal')
           }}
           aria-label={`${occasion.headline} Tap for more confetti.`}
           className="occasion-card press flex w-full items-center gap-3.5 text-left"

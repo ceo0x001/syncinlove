@@ -96,6 +96,23 @@ export default async function RevealPage({
 
   const earned = entry ? Number(entry.amount) : null
 
+  /*
+    Rungs crossed on this day, compared on the PAIR's clock inside the database.
+
+    Not filtered here: reached_at is a timestamptz, and deciding "same day" in this
+    process would use whatever zone the server runs in — filing a Lagos couple's
+    00:30 millionaire moment against the previous day. That mistake has appeared five
+    times in this repo already.
+  */
+  const { data: markRows } = await supabase.rpc('marks_reached_on_day', {
+    p_day_index: dayIndex,
+  })
+  const marks = (Array.isArray(markRows) ? markRows : []).map((row) => ({
+    threshold: Number(row.threshold),
+    label: String(row.label),
+    joint: Boolean(row.joint),
+  }))
+
   return (
     <Screen>
       <RevealView
@@ -112,6 +129,7 @@ export default async function RevealPage({
         iReadThem={iReadThem}
         theyReadMe={theyReadMe}
         earned={earned}
+        marks={marks}
       />
     </Screen>
   )
