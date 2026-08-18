@@ -219,7 +219,26 @@ export async function GET(
           }}
         >
           <span style={{ fontSize: 380 }}>{reveal.sync_score}</span>
-          <span style={{ fontSize: 130, color: '#5B6478', marginTop: 46 }}>%</span>
+          {/*
+              The negative margin is what centres the NUMBER rather than the lockup.
+
+              With the % inside the centred box, the box centred and the numeral did not:
+              measured at 41–45px left of the card's axis at every score — 9, 75 and 100
+              alike, because the % is a constant 68px wide. The one thing the card is
+              about was the one thing off centre, consistently, and it never looked wrong
+              enough to notice.
+
+              Discounting exactly the %'s own width leaves the numeral 10px left of the
+              geometric centre with the % hanging right, and that residual is the point
+              rather than an error: the % still has mass, so a perfectly centred numeral
+              would read right-heavy. Ten pixels of counterweight against a mark that is
+              a third the height and a lighter grey puts the optical centre on the axis.
+          */}
+          <span
+            style={{ fontSize: 130, color: '#5B6478', marginTop: 46, marginRight: -68 }}
+          >
+            %
+          </span>
         </div>
 
         <div
