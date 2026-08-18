@@ -174,6 +174,17 @@ reset role;
 -- ---------------------------------------------------------------------------
 -- Dating a milestone from when it actually happened
 --
+-- NOTE ON EVERY DATE COMPARISON BELOW: both sides are pinned to UTC.
+--
+-- `reached_at::date` casts in the SESSION's timezone. The first version of this block
+-- compared that against a UTC date and passed in Lagos and Kiritimati while failing in
+-- Los Angeles, because a session seven hours behind UTC is on the previous calendar day
+-- for seven hours out of every twenty-four.
+--
+-- That is the fifth time tonight this exact mistake has appeared in this repo, and the
+-- first time I made it myself — in the suite written to catch date bugs. `at time zone
+-- 'UTC'` on both sides is what makes the comparison mean one thing.
+--
 -- award_tender_marks runs on a reveal, so a couple already past a rung when this shipped
 -- would have had it stamped with their NEXT reveal. There was such a couple. A milestone
 -- whose date is wrong about when it was reached is worse than none — it is the thing you
@@ -196,7 +207,7 @@ values
 select public.award_tender_marks(:'pair');
 
 select assert(
-  (select reached_at::date from public.tender_marks
+  (select (reached_at at time zone 'UTC')::date from public.tender_marks
     where pair_id = :'pair' and user_id = :'ada' and threshold = 1000000)
     = (now() at time zone 'UTC')::date,
   'awarding on a reveal dates the mark today, which is wrong for a rung already passed'
@@ -222,9 +233,9 @@ on conflict (pair_id, user_id, threshold) where user_id is not null
 do update set reached_at = excluded.reached_at;
 
 select assert(
-  (select reached_at::date from public.tender_marks
+  (select (reached_at at time zone 'UTC')::date from public.tender_marks
     where pair_id = :'pair' and user_id = :'ada' and threshold = 1000000)
-    = (now() - interval '6 days')::date,
+    = ((now() - interval '6 days') at time zone 'UTC')::date,
   'the backfill moves it to the day the ledger says they crossed'
 );
 
@@ -256,9 +267,9 @@ do update set reached_at = excluded.reached_at;
 select assert(
   (select count(*) from public.tender_marks
     where pair_id = :'pair' and user_id = :'ada') = 1
-  and (select reached_at::date from public.tender_marks
+  and (select (reached_at at time zone 'UTC')::date from public.tender_marks
         where pair_id = :'pair' and user_id = :'ada' and threshold = 1000000)
-      = (now() - interval '6 days')::date,
+      = ((now() - interval '6 days') at time zone 'UTC')::date,
   'and running it twice changes nothing'
 );
 
@@ -291,9 +302,9 @@ on conflict (pair_id, user_id, threshold) where user_id is not null
 do update set reached_at = excluded.reached_at;
 
 select assert(
-  (select reached_at::date from public.tender_marks
+  (select (reached_at at time zone 'UTC')::date from public.tender_marks
     where pair_id = :'pair' and user_id = :'ada' and threshold = 1000000)
-    = (now() - interval '6 days')::date,
+    = ((now() - interval '6 days') at time zone 'UTC')::date,
   'a purchase afterwards does not move the date, because the sum is over earned only'
 );
 
