@@ -12,6 +12,19 @@ import { isConfigured, supabaseAnonKey, supabaseUrl } from '@/lib/supabase/env'
  * coverage from a mutation. Every action re-checks auth itself instead.
  */
 export async function proxy(request: NextRequest) {
+  // After the move this app is read-only: no Server Function or form post gets
+  // through, except signing in and bringing your account across, so anyone
+  // who hasn't moved yet still can. Set by MOVED_TO in Vercel, no deploy.
+  const path = request.nextUrl.pathname
+  if (
+    process.env.MOVED_TO &&
+    request.method !== 'GET' &&
+    request.method !== 'HEAD' &&
+    !STILL_OPEN.some((p) => path === p || path.startsWith(`${p}/`))
+  ) {
+    return new NextResponse('Sync in Love has moved. This app is read-only now.', { status: 403 })
+  }
+
   let response = NextResponse.next({ request })
 
   // Before the project is pointed at Supabase, skip cleanly instead of throwing
@@ -40,6 +53,8 @@ export async function proxy(request: NextRequest) {
 
   return response
 }
+
+const STILL_OPEN = ['/move', '/signin', '/auth']
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2?)$).*)'],

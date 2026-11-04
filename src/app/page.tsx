@@ -9,6 +9,8 @@ import { SealedPreview } from '@/components/sealed-preview'
 import { SetupNotice } from '@/components/setup-notice'
 import { Button, Card, NavLink, Rule, Screen, Wordmark } from '@/components/ui'
 import { isConfigured } from '@/lib/supabase/env'
+import { movedTo } from '@/lib/supabase/moved'
+import { myMove, newSyncUrl, sendMyAccount } from '@/lib/move'
 import { occasionToday } from '@/lib/occasions'
 import { formatCountdown, localParts } from '@/lib/sync/day'
 import { loadHome, type Economy, type HomeState } from '@/lib/session'
@@ -20,6 +22,17 @@ export const dynamic = 'force-dynamic'
 
 export default async function Home() {
   if (!isConfigured()) return <SetupNotice />
+
+  // After the move nothing here can be written, the settling below included,
+  // so the front door says where everyone went before anything tries.
+  const moved = await movedTo()
+  const move = await myMove()
+  // After the move, anyone who hasn’t brought their account yet goes to do it.
+  if (moved && move && move.state !== 'moved') redirect('/move')
+  if (moved || move?.state === 'moved') return <Moved url={moved ?? newSyncUrl()} />
+  // Still waiting on a partner: send again, so what they've done since their
+  // tap comes across too.
+  if (move?.state === 'waiting' || move?.state === 'held_back') await sendMyAccount().catch(() => undefined)
 
   // Pays the completion floor for any day answered alone whose window has closed,
   // so a silent partner never costs the person who showed up everything. No cron
@@ -169,6 +182,31 @@ function Suspended({ me }: { me: import('@/lib/session').Me }) {
         </p>
         <Link href="/settings" className="block">
           <Button variant="quiet">Your settings and export</Button>
+        </Link>
+      </div>
+    </Screen>
+  )
+}
+
+function Moved({ url }: { url: string }) {
+  return (
+    <Screen>
+      <div className="stack" style={{ ['--stack-gap' as string]: '1.5rem' }}>
+        <Wordmark />
+        <h1 className="t-question text-ink">Sync in Love has moved.</h1>
+        <p className="t-body text-ink-muted">
+          Your account, your streak, your Tender and your letters came with you. Sign in
+          there with the same email.
+        </p>
+        <a href={url} className="block">
+          <Button>Open the new Sync in Love</Button>
+        </a>
+        <p className="t-small text-ink-faint">
+          This app is read-only now. You can still look back at your history here for a
+          little while.
+        </p>
+        <Link href="/history" className="block">
+          <Button variant="quiet">Your history</Button>
         </Link>
       </div>
     </Screen>
