@@ -40,6 +40,12 @@ export function newSyncUrl(): string {
 }
 
 async function relay(fn: string, body: object): Promise<MoveStatus> {
+  const data = await signedCall<MoveStatus>(fn, body)
+  return { state: data.state, partner: data.partner ?? null }
+}
+
+/** Calls one of the new app's relay functions, signed with MOVE_SECRET. */
+export async function signedCall<T>(fn: string, body: object): Promise<T> {
   const payload = JSON.stringify(body)
   const sentAt = Math.floor(Date.now() / 1000)
   const signature = createHmac('sha256', SECRET as string).update(`${sentAt}.${payload}`).digest('hex')
@@ -54,8 +60,7 @@ async function relay(fn: string, body: object): Promise<MoveStatus> {
     cache: 'no-store',
   })
   if (!res.ok) throw new Error(`the new app answered ${res.status}`)
-  const data = (await res.json()) as MoveStatus
-  return { state: data.state, partner: data.partner ?? null }
+  return (await res.json()) as T
 }
 
 /** Every row of a table this person can see that matches, a page at a time. */

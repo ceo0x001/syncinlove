@@ -64,6 +64,7 @@ function Rail() {
     { href: '#retention', label: 'Retention', icon: <ChartIcon /> },
     { href: '#economy', label: 'Economy', icon: <CoinIcon /> },
     { href: '#emails', label: 'Emails', icon: <MailIcon /> },
+    { href: '#move', label: 'Move', icon: <MailIcon /> },
   ]
 
   return (

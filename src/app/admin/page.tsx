@@ -1,8 +1,10 @@
 import { redirect } from 'next/navigation'
 import { AdminAccounts } from '@/components/admin-accounts'
+import { AdminMoveEmails } from '@/components/admin-move-emails'
 import { AdminShell } from '@/components/admin-shell'
 import { SetupNotice } from '@/components/setup-notice'
 import { isConfigured } from '@/lib/supabase/env'
+import { moveEmailsView } from '@/lib/move-emails/summary'
 import { loadAdmin } from '@/lib/session'
 import { formatTender } from '@/lib/tender'
 
@@ -40,6 +42,7 @@ export default async function AdminPage({
 
   const { overview: o, retention, accounts, economy, nudges } = data
   const stuck = Number(nudges.claimed_unsent ?? 0)
+  const move = await moveEmailsView(accounts)
 
   return (
     <AdminShell title="How it’s going" breadcrumb="Overview">
@@ -160,6 +163,14 @@ export default async function AdminPage({
               {Number(nudges.partner_off ?? 0)} partner,{' '}
               {Number(nudges.requests_off ?? 0)} requests
             </p>
+          </section>
+
+          <section id="move" className="stack" style={{ ['--stack-gap' as string]: '1rem' }}>
+            <SectionHead
+              title="Move emails"
+              note="Asks everyone to bring their account to the new Sync in Love. Nobody who has moved, or already had an email, gets it again."
+            />
+            <AdminMoveEmails view={move} />
           </section>
         </div>
       </div>
