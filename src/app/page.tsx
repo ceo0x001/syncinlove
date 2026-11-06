@@ -151,7 +151,7 @@ function Welcome() {
         */}
         <div className="rounded-[0.75rem] bg-paper-sunken px-4 py-3.5">
           <p className="t-small text-ink-muted">
-            Used Sync before? Migrate from the banner above.
+            Used Sync before? Migrate from the banner above when you log in.
           </p>
           {/* The moving border lives on the wrapper; see .sync2-border in globals.css. */}
           <div className="sync2-border mt-2.5">
