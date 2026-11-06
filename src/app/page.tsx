@@ -113,7 +113,22 @@ function Welcome() {
           <span className="shrink-0">
             <Wordmark size="lg" />
           </span>
-          <HowItWorks />
+          {/*
+            Sync 2.0 takes the top-right slot that "How Sync works" used to hold: it is
+            the one spot on this page every visitor sees without scrolling, on every
+            phone. Measured — on an iPhone SE the sign-up button starts at 719px of a
+            667px screen, so anything placed near the form was invisible to them.
+          */}
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <div className="sync2-border">
+              <a
+                href="https://syncinlove-2.vercel.app"
+                className="press flex items-center gap-1.5 whitespace-nowrap rounded-[0.5rem] bg-accent-2 px-3.5 py-2.5 text-[0.875rem] font-medium text-accent-ink transition-[filter] hover:brightness-[1.06]"
+              >
+                Go to Sync 2.0 <span aria-hidden="true">&rarr;</span>
+              </a>
+            </div>
+          </div>
         </header>
 
         <div className="stack" style={{ ['--stack-gap' as string]: '1.25rem' }}>
@@ -141,31 +156,9 @@ function Welcome() {
 
         <EntryForm />
 
-        {/*
-          For people who used this app before Sync 2.0. Under the sign-up button, so
-          new visitors meet the form first and returning ones find their way out
-          straight after it.
-
-          Solid brand pink (accent-2) rather than the full gradient, so it reads as
-          ours without being mistaken for the sign-up button below. Dark ink text, not
-          white: white on #f43f8e is about 3.6:1 and fails for text this size, ink is
-          about 5:1. Same tab, because someone who has moved has no reason to come
-          back to this one.
-        */}
-        <div className="rounded-[0.75rem] bg-paper-sunken px-4 py-3.5">
-          <p className="t-small text-ink-muted">
-            Used Sync before? Migrate from the banner above when you log in.
-          </p>
-          {/* The moving border lives on the wrapper; see .sync2-border in globals.css. */}
-          <div className="sync2-border mt-2.5">
-            <a
-              href="https://syncinlove-2.vercel.app"
-              className="press flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] bg-accent-2 px-4 py-3 text-[0.9375rem] font-medium text-accent-ink transition-[filter] hover:brightness-[1.06]"
-            >
-              Go to Sync 2.0 <span aria-hidden="true">&rarr;</span>
-            </a>
-          </div>
-        </div>
+        <p className="-mt-4 t-small text-ink-muted">
+          Used Sync before? Migrate from the banner above when you log in.
+        </p>
 
         <p className="t-small text-ink-muted">
           Been here before?{' '}
