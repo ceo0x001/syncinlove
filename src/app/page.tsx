@@ -139,6 +139,31 @@ function Welcome() {
           </div>
         </div>
 
+        {/*
+          For people who used this app before Sync 2.0. Sits above the form so an
+          existing user sees it before filling in a form meant for new accounts.
+
+          Solid brand pink (accent-2) rather than the full gradient, so it reads as
+          ours without being mistaken for the sign-up button below. Dark ink text, not
+          white: white on #f43f8e is about 3.6:1 and fails for text this size, ink is
+          about 5:1. Same tab, because someone who has moved has no reason to come
+          back to this one.
+        */}
+        <div className="rounded-[0.75rem] bg-paper-sunken px-4 py-3.5">
+          <p className="t-small text-ink-muted">
+            Used Sync before? Migrate from the banner above.
+          </p>
+          {/* The moving border lives on the wrapper; see .sync2-border in globals.css. */}
+          <div className="sync2-border mt-2.5">
+            <a
+              href="https://syncinlove-2.vercel.app"
+              className="press flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] bg-accent-2 px-4 py-3 text-[0.9375rem] font-medium text-accent-ink transition-[filter] hover:brightness-[1.06]"
+            >
+              Go to Sync 2.0 <span aria-hidden="true">&rarr;</span>
+            </a>
+          </div>
+        </div>
+
         <EntryForm />
 
         <p className="t-small text-ink-muted">

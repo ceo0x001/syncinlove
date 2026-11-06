@@ -331,6 +331,52 @@ body::before {
  * transition. Both readings were wrong for the same reason, and an unverified claim
  * about this codebase recorded in this codebase is worse than no comment.
  */
+/*
+ * The animated border on "Go to Sync 2.0".
+ *
+ * A conic gradient spun around the button, showing through a 2px gap. The angle is
+ * a registered custom property so the browser can interpolate it — without @property
+ * a custom property animates in one jump at the end, and the border would just sit
+ * there.
+ *
+ * The sweep carries orange and a near-white highlight, not only pink: the button is
+ * already solid pink, and a pink border moving around a pink button is invisible.
+ *
+ * Reduced motion keeps the border, still. Same rule as the confetti — remove the
+ * movement, keep the decoration.
+ */
+@property --sync2-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.sync2-border {
+  padding: 2px;
+  border-radius: 0.625rem;
+  background: conic-gradient(
+    from var(--sync2-angle),
+    #f43f8e 0deg,
+    #ff8a3d 90deg,
+    #fff3f0 140deg,
+    #ff6b6b 200deg,
+    #f43f8e 360deg
+  );
+  animation: sync2-spin 3.2s linear infinite;
+}
+
+@keyframes sync2-spin {
+  to {
+    --sync2-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync2-border {
+    animation: none;
+  }
+}
+
 .pace-option:has(input:checked) {
   border-color: var(--accent);
   background: var(--accent-wash);
