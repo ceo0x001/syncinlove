@@ -139,9 +139,12 @@ function Welcome() {
           </div>
         </div>
 
+        <EntryForm />
+
         {/*
-          For people who used this app before Sync 2.0. Sits above the form so an
-          existing user sees it before filling in a form meant for new accounts.
+          For people who used this app before Sync 2.0. Under the sign-up button, so
+          new visitors meet the form first and returning ones find their way out
+          straight after it.
 
           Solid brand pink (accent-2) rather than the full gradient, so it reads as
           ours without being mistaken for the sign-up button below. Dark ink text, not
@@ -163,8 +166,6 @@ function Welcome() {
             </a>
           </div>
         </div>
-
-        <EntryForm />
 
         <p className="t-small text-ink-muted">
           Been here before?{' '}
