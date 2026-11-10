@@ -4,11 +4,13 @@ import { ClaimEmail } from '@/components/claim-email'
 import { EntryForm } from '@/components/entry-form'
 import { HowItWorks } from '@/components/how-it-works'
 import { InvitePanel } from '@/components/invite-panel'
+import { Moved } from '@/components/moved'
 import { OccasionBanner } from '@/components/occasion-banner'
 import { SealedPreview } from '@/components/sealed-preview'
 import { SetupNotice } from '@/components/setup-notice'
 import { Button, Card, NavLink, Rule, Screen, Wordmark } from '@/components/ui'
 import { isConfigured } from '@/lib/supabase/env'
+import { createClient } from '@/lib/supabase/server'
 import { movedTo } from '@/lib/supabase/moved'
 import { myMove, newSyncUrl, sendMyAccount } from '@/lib/move'
 import { occasionToday } from '@/lib/occasions'
@@ -29,7 +31,11 @@ export default async function Home() {
   const move = await myMove()
   // After the move, anyone who hasn’t brought their account yet goes to do it.
   if (moved && move && move.state !== 'moved') redirect('/move')
-  if (moved || move?.state === 'moved') return <Moved url={moved ?? newSyncUrl()} />
+  if (moved || move?.state === 'moved') {
+    // Signed out, the visitor may not have moved yet, so the way to move comes first.
+    const signedIn = move !== null || Boolean((await (await createClient()).auth.getUser()).data.user)
+    return <Moved url={moved ?? newSyncUrl()} signedIn={signedIn} />
+  }
   // Still waiting on a partner: send again, so what they've done since their
   // tap comes across too.
   if (move?.state === 'waiting' || move?.state === 'held_back') await sendMyAccount().catch(() => undefined)
@@ -201,31 +207,6 @@ function Suspended({ me }: { me: import('@/lib/session').Me }) {
         </p>
         <Link href="/settings" className="block">
           <Button variant="quiet">Your settings and export</Button>
-        </Link>
-      </div>
-    </Screen>
-  )
-}
-
-function Moved({ url }: { url: string }) {
-  return (
-    <Screen>
-      <div className="stack" style={{ ['--stack-gap' as string]: '1.5rem' }}>
-        <Wordmark />
-        <h1 className="t-question text-ink">Sync in Love has moved.</h1>
-        <p className="t-body text-ink-muted">
-          Your account, your streak, your Tender and your letters came with you. Sign in
-          there with the same email.
-        </p>
-        <a href={url} className="block">
-          <Button>Open the new Sync in Love</Button>
-        </a>
-        <p className="t-small text-ink-faint">
-          This app is read-only now. You can still look back at your history here for a
-          little while.
-        </p>
-        <Link href="/history" className="block">
-          <Button variant="quiet">Your history</Button>
         </Link>
       </div>
     </Screen>
