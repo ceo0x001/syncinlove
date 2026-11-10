@@ -5,7 +5,8 @@ import { SUPPORT_URL } from '@/lib/support'
  * The move emails: one announcement, then a reminder a week before the last
  * day and another the day before (the founder's plan of 6 November 2026).
  * The move came early, on 10 November: syncin.love opened the new app that
- * day, and Bring my account stays open here until 1 January 2027.
+ * day, and the founder gave everyone a week (10 November): Bring my account
+ * stays open here until the end of 17 November.
  *
  * Pure functions, so what each person gets can be tested without sending
  * anything. Who has moved and who already had which email comes from the new
@@ -25,11 +26,12 @@ export interface Standing {
 
 export const PLANNED: Record<MoveEmail, string> = {
   announce: 'Tuesday 10 November',
-  week: 'Thursday 24 December',
-  last: 'Wednesday 30 December',
+  // Still called "week" inside, but with a week in all it goes three days before the end.
+  week: 'Saturday 14 November',
+  last: 'Monday 16 November',
 }
-/** The day before moving closes (the new app's `pnpm move:close`, now the start of 1 January 2027). */
-export const LAST_DAY = 'Thursday 31 December'
+/** The day before moving closes (the new app's `pnpm move:close`, now the start of 18 November). */
+export const LAST_DAY = 'Tuesday 17 November'
 /** This app's own page. After moving day the new app sends /move back here. */
 export const MOVE_LINK = 'https://syncin.love/move'
 
@@ -90,8 +92,8 @@ export function plan(email: MoveEmail, accounts: AdminAccount[], standings: Reco
 }
 
 const SUBJECT: Record<MoveEmail, string> = {
-  announce: 'Sync in Love has a new home. Bring your account by 31 December',
-  week: 'One week left to bring your Sync in Love account',
+  announce: 'Sync in Love has a new home. Bring your account by 17 November',
+  week: 'Three days left to bring your Sync in Love account',
   last: 'Last day tomorrow: bring your Sync in Love account',
 }
 
@@ -107,7 +109,7 @@ export function compose(email: MoveEmail, p: Person, mine: Standing, theirs?: St
         ? 'We’ve rebuilt Sync in Love, and it now lives at syncin.love. It’s still one question a day, and it’s still the two of you, with more to do together.'
         : 'We’ve rebuilt Sync in Love, and it now lives at syncin.love. It’s still one question a day, with more to do together.'
       : email === 'week'
-        ? `One week left: bring your account to the new Sync in Love by ${LAST_DAY}.`
+        ? `Three days left: bring your account to the new Sync in Love by ${LAST_DAY}.`
         : `Tomorrow, ${LAST_DAY}, is the last day to bring your account to the new Sync in Love.`
 
   // Where this person (and their partner) stands decides the rest.

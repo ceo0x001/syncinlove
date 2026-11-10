@@ -26,7 +26,7 @@ export function Moved({ url, signedIn }: { url: string; signedIn: boolean }) {
             <Button variant="quiet">Already moved? Open the new one</Button>
           </a>
           {/* The closing date is set in the new app (pnpm move:close there); change this with it. */}
-          <p className="t-small text-ink-faint">Open until 1 January.</p>
+          <p className="t-small text-ink-faint">Open until 17 November.</p>
         </div>
       </Screen>
     )
