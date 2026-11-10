@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { stillOpen } from '@/lib/frozen'
 import { isConfigured, supabaseAnonKey, supabaseUrl } from '@/lib/supabase/env'
 
 /**
@@ -13,15 +14,9 @@ import { isConfigured, supabaseAnonKey, supabaseUrl } from '@/lib/supabase/env'
  */
 export async function proxy(request: NextRequest) {
   // After the move this app is read-only: no Server Function or form post gets
-  // through, except signing in and bringing your account across, so anyone
-  // who hasn't moved yet still can. Set by MOVED_TO in Vercel, no deploy.
-  const path = request.nextUrl.pathname
-  if (
-    process.env.MOVED_TO &&
-    request.method !== 'GET' &&
-    request.method !== 'HEAD' &&
-    !STILL_OPEN.some((p) => path === p || path.startsWith(`${p}/`))
-  ) {
+  // through, except where someone still needs to act (lib/frozen.ts). Set by
+  // MOVED_TO in Vercel, no deploy.
+  if (process.env.MOVED_TO && request.method !== 'GET' && request.method !== 'HEAD' && !stillOpen(request.nextUrl.pathname)) {
     return new NextResponse('Sync in Love has moved. This app is read-only now.', { status: 403 })
   }
 
@@ -53,8 +48,6 @@ export async function proxy(request: NextRequest) {
 
   return response
 }
-
-const STILL_OPEN = ['/move', '/signin', '/auth']
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2?)$).*)'],
