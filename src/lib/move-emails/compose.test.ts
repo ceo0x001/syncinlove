@@ -79,12 +79,16 @@ describe('what each email says', () => {
 
   it('asks a partner to tap too', () => {
     const l = compose('announce', ada, fresh, fresh)
-    expect(l.subject).toBe('Sync in Love has a new home. Bring your account by 29 November')
+    expect(l.subject).toBe('Sync in Love has a new home. Bring your account by 31 December')
     expect(l.text).toContain('Hi Ada,')
     expect(l.text).toContain('it’s still the two of you')
     expect(l.text).toContain('3. Ask Ben to tap too. Your shared days move once you both have.')
     expect(l.text).toContain('Bring my account: https://syncin.love/move')
-    expect(l.text).toContain('until Monday 7 December')
+    expect(l.text).toContain('Please move by Thursday 31 December. After that, your old account can’t come across.')
+    // syncin.love is the new app now: the way in is the button, and a new account there comes after.
+    expect(l.text).toContain('1. Tap the button below and sign in with this email.')
+    expect(l.text).not.toContain('Open syncin.love')
+    expect(l.text).toContain('Bring it before you sign up on syncin.love, so everything lands in one account.')
   })
 
   it('says when their partner has already tapped', () => {

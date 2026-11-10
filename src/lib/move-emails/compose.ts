@@ -4,6 +4,8 @@ import { SUPPORT_URL } from '@/lib/support'
 /**
  * The move emails: one announcement, then a reminder a week before the last
  * day and another the day before (the founder's plan of 6 November 2026).
+ * The move came early, on 10 November: syncin.love opened the new app that
+ * day, and Bring my account stays open here until 1 January 2027.
  *
  * Pure functions, so what each person gets can be tested without sending
  * anything. Who has moved and who already had which email comes from the new
@@ -22,12 +24,12 @@ export interface Standing {
 }
 
 export const PLANNED: Record<MoveEmail, string> = {
-  announce: 'Monday 9 November',
-  week: 'Sunday 22 November',
-  last: 'Saturday 28 November',
+  announce: 'Tuesday 10 November',
+  week: 'Thursday 24 December',
+  last: 'Wednesday 30 December',
 }
-export const LAST_DAY = 'Sunday 29 November'
-export const LATE_UNTIL = 'Monday 7 December'
+/** The day before moving closes (the new app's `pnpm move:close`, now the start of 1 January 2027). */
+export const LAST_DAY = 'Thursday 31 December'
 /** This app's own page. After moving day the new app sends /move back here. */
 export const MOVE_LINK = 'https://syncin.love/move'
 
@@ -88,7 +90,7 @@ export function plan(email: MoveEmail, accounts: AdminAccount[], standings: Reco
 }
 
 const SUBJECT: Record<MoveEmail, string> = {
-  announce: 'Sync in Love has a new home. Bring your account by 29 November',
+  announce: 'Sync in Love has a new home. Bring your account by 31 December',
   week: 'One week left to bring your Sync in Love account',
   last: 'Last day tomorrow: bring your Sync in Love account',
 }
@@ -102,8 +104,8 @@ export function compose(email: MoveEmail, p: Person, mine: Standing, theirs?: St
   const opening =
     email === 'announce'
       ? partner
-        ? 'We’ve rebuilt Sync in Love. It’s still one question a day, and it’s still the two of you, with more to do together.'
-        : 'We’ve rebuilt Sync in Love. It’s still one question a day, with more to do together.'
+        ? 'We’ve rebuilt Sync in Love, and it now lives at syncin.love. It’s still one question a day, and it’s still the two of you, with more to do together.'
+        : 'We’ve rebuilt Sync in Love, and it now lives at syncin.love. It’s still one question a day, with more to do together.'
       : email === 'week'
         ? `One week left: bring your account to the new Sync in Love by ${LAST_DAY}.`
         : `Tomorrow, ${LAST_DAY}, is the last day to bring your account to the new Sync in Love.`
@@ -118,9 +120,11 @@ export function compose(email: MoveEmail, p: Person, mine: Standing, theirs?: St
         : `Ask ${partner} to tap too. Your shared days move once you both have.`
   const steps = waiting
     ? []
-    : ['Open syncin.love and sign in.', 'Tap Bring my account.', ...(partnerLine ? [partnerLine] : [])]
+    : ['Tap the button below and sign in with this email.', 'Tap Bring my account.', ...(partnerLine ? [partnerLine] : [])]
+  // syncin.love is the new app since the move, so an account made there first starts empty.
+  const oneAccount = waiting ? null : 'Bring it before you sign up on syncin.love, so everything lands in one account.'
 
-  const deadline = `Please move by ${LAST_DAY}. After that, syncin.love opens the new Sync in Love, and you’ll have one more week to bring your account, until ${LATE_UNTIL}.`
+  const deadline = `Please move by ${LAST_DAY}. After that, your old account can’t come across.`
   const greeting = name ? `Hi ${name},` : 'Hi,'
   const button = waiting ? 'See where your move stands' : 'Bring my account'
 
@@ -135,6 +139,7 @@ export function compose(email: MoveEmail, p: Person, mine: Standing, theirs?: St
     '',
     `${button}: ${MOVE_LINK}`,
     '',
+    ...(oneAccount ? [oneAccount, ''] : []),
     deadline,
     '',
     `Questions? Message us on WhatsApp: ${SUPPORT_URL}`,
@@ -154,6 +159,7 @@ export function compose(email: MoveEmail, p: Person, mine: Standing, theirs?: St
       : para('Your answers, streaks, Menu and Tender can all come with you. It takes one tap:') +
         `<ol style="margin:0 0 16px;padding-left:22px">${steps.map((s) => `<li style="margin:0 0 6px">${bold(escape(s))}</li>`).join('')}</ol>`,
     `<p style="margin:0 0 20px"><a href="${MOVE_LINK}" style="display:inline-block;background:#e11d48;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:10px">${button}</a></p>`,
+    oneAccount ? para(escape(oneAccount)) : '',
     para(`<strong>${escape(deadline.split('. ')[0])}.</strong> ${escape(deadline.split('. ').slice(1).join('. '))}`),
     para(`Questions? <a href="${SUPPORT_URL}" style="color:#be123c">Message us on WhatsApp</a>.`),
     para('The Sync in Love team'),
